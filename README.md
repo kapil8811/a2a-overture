@@ -509,33 +509,41 @@ overture --help
 
 ## Tested Against Real A2A Agents
 
-A2A Overture has been validated against real third-party A2A agents from the [official a2a-samples repository](https://github.com/a2aproject/a2a-samples), not just our own mock server. Overture automatically detects agent protocol versions (v0.3.x and v1.0) and adapts JSON-RPC method names and role values accordingly.
+A2A Overture has been validated against **8 real A2A agents** spanning Python, .NET, and our built-in mock — across three protocol versions (v1.0, v0.3.0, v0.2.6). Overture automatically detects agent protocol versions, adapts JSON-RPC method names, role values, and part discriminators accordingly.
 
-| Agent | Source | Protocol | Passed | Failed | Notes |
-|-------|--------|----------|--------|--------|-------|
-| **Overture Mock** | Built-in | v1.0 | 20/23 | 0 | 3 skipped (n/a) |
-| **Hello World** | [a2a-samples](https://github.com/a2aproject/a2a-samples/tree/main/samples/python/agents/helloworld) | v0.3.0 | 6/23 | 2 | Message-only agent (no tasks), 13 skipped |
-| **AgentAlice** | [a2a-samples](https://github.com/a2aproject/a2a-samples/tree/main/samples/python/agents/number_guessing_game) | v0.3.0 | 9/23 | 5 | Task-based agent with game logic, 8 skipped |
+| Agent | SDK | Protocol | Passed | Failed | Warn | Skipped | Notes |
+|-------|-----|----------|--------|--------|------|---------|-------|
+| **Overture Mock** | Built-in | v1.0 | 20 | 0 | 0 | 3 | Full compliance baseline |
+| **AgentCarol** | Python (a2a-sdk) | v0.3.0 | 11 | 2 | 2 | 8 | Best third-party score; full task lifecycle |
+| **AgentAlice** | Python (a2a-sdk) | v0.3.0 | 9 | 5 | 1 | 8 | Tasks complete instantly → cancel/continue fail |
+| **EchoServer** | .NET (A2A NuGet) | v0.2.6 | 7 | 3 | 1 | 12 | Message-only echo; streaming works |
+| **CalculatorServer** | .NET (A2A NuGet) | v0.2.6 | 7 | 3 | 1 | 12 | Evaluates math expressions |
+| **CLIServer** | .NET (A2A NuGet) | v0.2.6 | 7 | 3 | 1 | 12 | Executes CLI commands |
+| **Signed Agent** | Python (a2a-sdk) | v0.3.0 | 6 | 2 | 2 | 13 | Signing & verification demo |
+| **Hello World** | Python (a2a-sdk) | v0.3.0 | 6 | 2 | 0 | 13 | Message-only (no tasks) |
+
+> All agents are from the [official a2a-samples repository](https://github.com/a2aproject/a2a-samples).
 
 ### Key Findings
 
-- **v0.3.0 agents** are missing `supportedInterfaces` (required in v1.0) — flagged correctly as compliance gaps
-- **Hello World** returns direct `Message` responses (no `Task`), which Overture handles gracefully by skipping task-dependent tests
-- **AgentAlice** demonstrates proper task lifecycle (submit → complete) but tasks complete immediately, making cancel/continuation tests fail as expected
-- **Streaming** works across both v0.3.0 and v1.0 agents
-- **Auto-detection** of protocol version and RPC endpoint URL ensures broad compatibility
+- **All pre-v1.0 agents** are missing `supportedInterfaces` (required in v1.0) — flagged correctly as compliance gaps
+- **.NET v0.2.6 agents** require the `kind` type discriminator as the **first JSON property** in Part objects (System.Text.Json polymorphic deserialization requirement) — Overture handles this automatically
+- **.NET agents** serve their agent card at `.well-known/agent.json` (not `agent-card.json`) — Overture falls back automatically
+- **AgentCarol** achieves the highest third-party score (11/23) with full task lifecycle support including multi-turn, history, and streaming
+- **Streaming** works across Python v0.3.0 and .NET v0.2.6 agents
+- **Auto-detection** of protocol version, binding, RPC endpoint URL, and agent card path ensures broad compatibility with zero configuration
 
 ### Protocol Compatibility
 
-Overture supports both A2A protocol versions:
+Overture supports A2A protocol versions v1.0, v0.3.x, and v0.2.x:
 
-| Feature | v1.0 Method | v0.3.x Method |
-|---------|-------------|---------------|
-| Send Message | `SendMessage` | `message/send` |
-| Stream Message | `SendStreamingMessage` | `message/stream` |
-| Get Task | `GetTask` | `tasks/get` |
-| Cancel Task | `CancelTask` | `tasks/cancel` |
-| Subscribe | `SubscribeToTask` | `tasks/resubscribe` |
+| Feature | v1.0 | v0.3.x / v0.2.x |
+|---------|------|------------------|
+| Method names | PascalCase (`SendMessage`) | Slash-separated (`message/send`) |
+| Role values | `ROLE_USER` / `ROLE_AGENT` | `user` / `agent` |
+| Part discriminator | Optional `kind` field | **Required** `kind` as first property |
+| Agent card URL | `.well-known/agent-card.json` | `.well-known/agent.json` (fallback) |
+| Binding | HTTP+JSON or JSONRPC | Auto-switches to JSONRPC |
 
 ## Roadmap
 
@@ -548,6 +556,8 @@ Overture supports both A2A protocol versions:
 - [x] npm published as [`a2a-overture`](https://www.npmjs.com/package/a2a-overture)
 - [x] Tested against real A2A agents (official a2a-samples)
 - [x] Protocol v0.3.x backward compatibility (auto-detection)
+- [x] .NET v0.2.6 compatibility (part discriminators, agent card fallback)
+- [x] Cross-platform validation (Python + .NET + built-in, 8 agents total)
 - [ ] Hosted public registry instance
 - [ ] A2A v1.1+ test coverage (as spec evolves)
 

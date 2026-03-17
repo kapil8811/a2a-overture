@@ -29,9 +29,19 @@ export async function runComplianceSuite(
       client.setAgentProtocolVersion(detectedVersion);
     }
 
+    // Auto-detect binding from agent card for pre-v1.0 agents
+    const preferredTransport = agentCard.preferredTransport as string | undefined;
+    if (preferredTransport === 'JSONRPC' && clientOptions.binding !== 'JSONRPC') {
+      client.setBinding('JSONRPC');
+    } else if (detectedVersion?.startsWith('0.') && clientOptions.binding !== 'JSONRPC') {
+      // Pre-v1.0 agents typically only support JSONRPC
+      client.setBinding('JSONRPC');
+    }
+
     // Auto-detect RPC endpoint URL from agent card (e.g., /a2a/v1)
     const agentUrl = agentCard.url as string | undefined;
-    if (agentUrl && clientOptions.binding === 'JSONRPC') {
+    const effectiveBinding = client.getBinding();
+    if (agentUrl && effectiveBinding === 'JSONRPC') {
       try {
         const parsed = new URL(agentUrl);
         if (parsed.pathname && parsed.pathname !== '/') {

@@ -69,6 +69,16 @@ export class A2AClient {
     this.rpcUrl = url.replace(/\/+$/, '');
   }
 
+  /** Switch the protocol binding */
+  setBinding(binding: 'HTTP+JSON' | 'JSONRPC'): void {
+    this.options.binding = binding;
+  }
+
+  /** Get the current protocol binding */
+  getBinding(): 'HTTP+JSON' | 'JSONRPC' {
+    return this.options.binding;
+  }
+
   /** Resolve the JSON-RPC method name based on detected agent protocol version */
   private resolveMethodName(method: string): string {
     const agentVersion = this.options.agentProtocolVersion;
@@ -78,26 +88,69 @@ export class A2AClient {
     return method;
   }
 
-  /** Transform params for v0.3.x compatibility (role values, etc.) */
+  /** Transform params for pre-v1.0 compatibility (role values, part discriminators, etc.) */
   private transformParamsForAgent(params: Record<string, unknown>): Record<string, unknown> {
     const agentVersion = this.options.agentProtocolVersion;
     if (!agentVersion || !agentVersion.startsWith('0.')) {
       return params;
     }
-    // Deep clone and transform role values: ROLE_USER -> user, ROLE_AGENT -> agent
-    return JSON.parse(JSON.stringify(params), (_key, value) => {
+    // Deep clone and transform
+    const clone = JSON.parse(JSON.stringify(params), (_key, value) => {
+      // Transform role values: ROLE_USER -> user, ROLE_AGENT -> agent
       if (value === 'ROLE_USER') return 'user';
       if (value === 'ROLE_AGENT') return 'agent';
       return value;
     });
+    // Add 'kind' discriminator to parts (required by v0.2.x/.NET and v0.3.x agents)
+    this.addPartKindDiscriminator(clone);
+    return clone;
+  }
+
+  /** Recursively add 'kind' discriminator to Part objects missing it */
+  private addPartKindDiscriminator(obj: unknown): void {
+    if (!obj || typeof obj !== 'object') return;
+    if (Array.isArray(obj)) {
+      for (const item of obj) this.addPartKindDiscriminator(item);
+      return;
+    }
+    const record = obj as Record<string, unknown>;
+    // Detect part-like objects in a 'parts' array
+    // .NET System.Text.Json requires the discriminator ('kind') to be the FIRST property
+    if (Array.isArray(record.parts)) {
+      const parts = record.parts as Record<string, unknown>[];
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part && typeof part === 'object' && !part.kind) {
+          let kind: string | undefined;
+          if (part.text !== undefined) kind = 'text';
+          else if (part.data !== undefined) kind = 'data';
+          else if (part.raw !== undefined || part.url !== undefined) kind = 'file';
+          if (kind) {
+            // Rebuild object with 'kind' first so it serialises as the first JSON key
+            parts[i] = { kind, ...part };
+          }
+        }
+      }
+    }
+    // Recurse into nested objects
+    for (const val of Object.values(record)) {
+      if (val && typeof val === 'object') this.addPartKindDiscriminator(val);
+    }
   }
 
   // ─── Agent Discovery ────────────────────────────────────
 
   async discoverAgentCard(wellKnownUrl?: string): Promise<AgentCard> {
-    const url = wellKnownUrl || `${this.options.baseUrl}/.well-known/agent-card.json`;
-    const res = await this.fetch(url, { method: 'GET' });
-    return res as AgentCard;
+    if (wellKnownUrl) {
+      return this.fetch(wellKnownUrl, { method: 'GET' }) as Promise<AgentCard>;
+    }
+    // Try the v1.0 well-known URL first, then fall back to the older path
+    const base = this.options.baseUrl;
+    try {
+      return await this.fetch(`${base}/.well-known/agent-card.json`, { method: 'GET' }) as Promise<AgentCard>;
+    } catch {
+      return this.fetch(`${base}/.well-known/agent.json`, { method: 'GET' }) as Promise<AgentCard>;
+    }
   }
 
   async getExtendedAgentCard(): Promise<AgentCard> {
