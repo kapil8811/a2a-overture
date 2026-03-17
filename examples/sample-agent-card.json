@@ -1,0 +1,43 @@
+{
+  "name": "Demo Weather Agent",
+  "description": "A sample A2A agent that provides weather information.",
+  "version": "1.0.0",
+  "supportedInterfaces": [
+    {
+      "url": "https://weather-agent.example.com/a2a",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "provider": {
+    "organization": "Overture Demo",
+    "url": "https://example.com"
+  },
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "get-weather",
+      "name": "Get Weather",
+      "description": "Returns the current weather for a given location.",
+      "tags": ["weather", "forecast", "temperature"],
+      "examples": [
+        "What's the weather in London?",
+        "Is it going to rain in New York today?"
+      ]
+    },
+    {
+      "id": "forecast",
+      "name": "Weather Forecast",
+      "description": "Returns a multi-day weather forecast for a location.",
+      "tags": ["weather", "forecast", "multi-day"],
+      "examples": [
+        "Give me a 5-day forecast for Tokyo"
+      ]
+    }
+  ]
+}

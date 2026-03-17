@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.js.map
+*.d.ts
+!src/**
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated compliance artifacts
+.overture-registry/
+a2a-badge.svg
+a2a-compliance-report.json
+compliance-report.html
+
+# Generated documents
+*.docx
+~$*
+generate_analysis_doc.py
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*

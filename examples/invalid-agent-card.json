@@ -1,0 +1,14 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "supportedInterfaces": [],
+  "capabilities": {},
+  "defaultInputModes": [],
+  "defaultOutputModes": ["not-a-media-type"],
+  "skills": [
+    {
+      "id": "broken",
+      "name": "Broken Skill"
+    }
+  ]
+}

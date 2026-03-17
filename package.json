@@ -1,0 +1,48 @@
+{
+  "name": "a2a-overture",
+  "version": "0.1.0",
+  "description": "The opening act for your A2A agents — discover, test, and certify A2A protocol compliance",
+  "main": "dist/index.js",
+  "bin": {
+    "overture": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "mock": "node dist/index.js mock",
+    "web": "node dist/index.js web",
+    "registry": "node dist/index.js registry serve",
+    "demo": "node dist/index.js mock & node dist/index.js web",
+    "lint": "eslint src/**/*.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "a2a",
+    "agent2agent",
+    "ai-agents",
+    "testing",
+    "certification",
+    "protocol",
+    "multi-agent"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "ajv": "^8.17.1",
+    "ora": "^8.1.0",
+    "cli-table3": "^0.6.5",
+    "eventsource": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "ts-node": "^10.9.2",
+    "@types/eventsource": "^1.1.15"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

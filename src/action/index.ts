@@ -1,0 +1,242 @@
+/**
+ * GitHub Action entrypoint for A2A Overture compliance checking.
+ * Runs the compliance test suite and outputs results as:
+ *  - GitHub Action outputs
+ *  - JSON report file
+ *  - PR comment (if enabled)
+ *  - SVG badge (if badge-output path set)
+ */
+
+import { runComplianceSuite } from '../core/compliance/runner';
+import { toJsonReport } from '../reporters/json';
+import { generateBadgeSvg } from '../reporters/badge';
+import { generateHtmlReport } from '../reporters/html';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as https from 'https';
+import * as http from 'http';
+
+// ─── Minimal GitHub Actions helpers (no @actions/* dependency) ─
+
+function getInput(name: string, required = false): string {
+  const val = process.env[`INPUT_${name.replace(/-/g, '_').toUpperCase()}`] || '';
+  if (required && !val) {
+    throw new Error(`Input required and not supplied: ${name}`);
+  }
+  return val.trim();
+}
+
+function setOutput(name: string, value: string) {
+  const filePath = process.env['GITHUB_OUTPUT'];
+  if (filePath) {
+    fs.appendFileSync(filePath, `${name}=${value}\n`);
+  }
+}
+
+function exportStepSummary(markdown: string) {
+  const filePath = process.env['GITHUB_STEP_SUMMARY'];
+  if (filePath) {
+    fs.appendFileSync(filePath, markdown + '\n');
+  }
+}
+
+function getEventPayload(): Record<string, unknown> | null {
+  const eventPath = process.env['GITHUB_EVENT_PATH'];
+  if (eventPath && fs.existsSync(eventPath)) {
+    return JSON.parse(fs.readFileSync(eventPath, 'utf-8'));
+  }
+  return null;
+}
+
+// ─── PR commenting via GitHub REST API ───────────────────
+
+async function commentOnPR(markdown: string): Promise<void> {
+  const token = process.env['GITHUB_TOKEN'];
+  const repo = process.env['GITHUB_REPOSITORY'];
+  if (!token || !repo) return;
+
+  const event = getEventPayload();
+  const prNumber = (event?.pull_request as Record<string, unknown>)?.number as number | undefined;
+  if (!prNumber) return;
+
+  const body = JSON.stringify({ body: markdown });
+  const [owner, repoName] = repo.split('/');
+  const apiPath = `/repos/${owner}/${repoName}/issues/${prNumber}/comments`;
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: apiPath,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'a2a-overture-action',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk: string) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          resolve();
+        } else {
+          console.error(`PR comment failed (${res.statusCode}): ${data}`);
+          resolve(); // Don't fail the action for comment failures
+        }
+      });
+    });
+    req.on('error', (err) => {
+      console.error(`PR comment error: ${err.message}`);
+      resolve();
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
+// ─── Build PR comment / step summary markdown ───────────
+
+function buildMarkdownSummary(report: {
+  agentUrl: string;
+  agentName?: string;
+  protocolVersion: string;
+  timestamp: string;
+  duration: number;
+  summary: { total: number; passed: number; failed: number; warnings: number; skipped: number };
+  tests: Array<{ id: string; name: string; result: string; message?: string; duration?: number }>;
+}): string {
+  const { summary } = report;
+  const passRate = summary.total > 0 ? Math.round((summary.passed / summary.total) * 100) : 0;
+  const overallIcon = summary.failed === 0 ? '✅' : '❌';
+  const verdict = summary.failed === 0 ? 'PASS' : 'FAIL';
+
+  let md = `## ${overallIcon} A2A Overture Compliance Report\n\n`;
+  md += `| | |\n|---|---|\n`;
+  md += `| **Agent** | ${report.agentName || report.agentUrl} |\n`;
+  md += `| **URL** | \`${report.agentUrl}\` |\n`;
+  md += `| **Protocol** | A2A v${report.protocolVersion} |\n`;
+  md += `| **Result** | **${verdict}** (${passRate}% pass rate) |\n`;
+  md += `| **Duration** | ${report.duration}ms |\n\n`;
+
+  md += `### Summary\n\n`;
+  md += `| ✅ Passed | ❌ Failed | ⚠️ Warnings | ⏭️ Skipped | Total |\n`;
+  md += `|:-:|:-:|:-:|:-:|:-:|\n`;
+  md += `| ${summary.passed} | ${summary.failed} | ${summary.warnings} | ${summary.skipped} | ${summary.total} |\n\n`;
+
+  md += `### Test Results\n\n`;
+  md += `| Status | Test | Duration | Details |\n`;
+  md += `|:-:|---|:-:|---|\n`;
+
+  for (const test of report.tests) {
+    const icon = test.result === 'pass' ? '✅' : test.result === 'fail' ? '❌' : test.result === 'warn' ? '⚠️' : '⏭️';
+    const dur = test.duration ? `${test.duration}ms` : '-';
+    const msg = test.message ? test.message.substring(0, 80) : '';
+    md += `| ${icon} | ${test.name} | ${dur} | ${msg} |\n`;
+  }
+
+  md += `\n---\n*Generated by [A2A Overture](https://github.com/a2a-overture) at ${report.timestamp}*\n`;
+
+  return md;
+}
+
+// ─── Main ────────────────────────────────────────────────
+
+async function main() {
+  console.log('🎵 A2A Overture — Compliance Check\n');
+
+  const agentUrl = getInput('agent-url', true);
+  const binding = (getInput('binding') || 'HTTP+JSON') as 'HTTP+JSON' | 'JSONRPC';
+  const authToken = getInput('auth-token');
+  const only = getInput('only');
+  const skip = getInput('skip');
+  const failOnWarning = getInput('fail-on-warning') === 'true';
+  const badgeOutput = getInput('badge-output');
+  const reportOutput = getInput('report-output') || 'a2a-compliance-report.json';
+  const commentEnabled = getInput('comment-on-pr') !== 'false';
+
+  console.log(`Agent URL: ${agentUrl}`);
+  console.log(`Binding:   ${binding}`);
+  console.log('');
+
+  try {
+    const report = await runComplianceSuite(
+      {
+        baseUrl: agentUrl,
+        binding,
+        authorization: authToken || undefined,
+      },
+      {
+        testIds: only ? only.split(',').map(s => s.trim()) : undefined,
+        skipIds: skip ? skip.split(',').map(s => s.trim()) : undefined,
+        onTestComplete: (result, index, total) => {
+          const icon = result.result === 'pass' ? '✅'
+            : result.result === 'fail' ? '❌'
+            : result.result === 'warn' ? '⚠️'
+            : '⏭️';
+          console.log(`  ${icon} ${result.name}${result.duration ? ` (${result.duration}ms)` : ''}`);
+        },
+      },
+    );
+
+    console.log('');
+
+    // Set outputs
+    const overallResult = report.summary.failed > 0 || (failOnWarning && report.summary.warnings > 0) ? 'fail' : 'pass';
+    setOutput('result', overallResult);
+    setOutput('passed', String(report.summary.passed));
+    setOutput('failed', String(report.summary.failed));
+    setOutput('warnings', String(report.summary.warnings));
+    setOutput('skipped', String(report.summary.skipped));
+    setOutput('total', String(report.summary.total));
+    setOutput('report-json', JSON.stringify(report));
+
+    // Save JSON report
+    if (reportOutput) {
+      const dir = path.dirname(reportOutput);
+      if (dir && !fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(reportOutput, toJsonReport(report), 'utf-8');
+      console.log(`📄 Report saved: ${reportOutput}`);
+    }
+
+    // Generate badge SVG
+    if (badgeOutput) {
+      const svg = generateBadgeSvg(report.summary);
+      const dir = path.dirname(badgeOutput);
+      if (dir && !fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(badgeOutput, svg, 'utf-8');
+      console.log(`🏅 Badge saved: ${badgeOutput}`);
+      setOutput('badge-url', badgeOutput);
+    }
+
+    // Step summary
+    const markdown = buildMarkdownSummary(report);
+    exportStepSummary(markdown);
+
+    // PR comment
+    if (commentEnabled) {
+      await commentOnPR(markdown);
+    }
+
+    // Print summary
+    const { passed, failed, warnings, skipped, total } = report.summary;
+    console.log('');
+    console.log(`Results: ${passed}/${total} passed, ${failed} failed, ${warnings} warnings, ${skipped} skipped`);
+    console.log(`Overall: ${overallResult.toUpperCase()}`);
+
+    if (overallResult === 'fail') {
+      process.exitCode = 1;
+    }
+
+  } catch (err) {
+    console.error(`\n❌ Action failed: ${err instanceof Error ? err.message : String(err)}`);
+    process.exitCode = 1;
+  }
+}
+
+main();

@@ -1,0 +1,62 @@
+name: 'A2A Overture Compliance Check'
+description: 'Run A2A protocol compliance tests against your agent and get results in PR comments'
+author: 'A2A Overture'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  agent-url:
+    description: 'URL of the A2A agent to test (e.g., http://localhost:3000)'
+    required: true
+  binding:
+    description: 'Protocol binding: HTTP+JSON or JSONRPC'
+    required: false
+    default: 'HTTP+JSON'
+  auth-token:
+    description: 'Authorization header value (e.g., "Bearer my-token")'
+    required: false
+  only:
+    description: 'Comma-separated list of test IDs to run'
+    required: false
+  skip:
+    description: 'Comma-separated list of test IDs to skip'
+    required: false
+  fail-on-warning:
+    description: 'Treat warnings as failures'
+    required: false
+    default: 'false'
+  badge-output:
+    description: 'Path to write the compliance badge SVG'
+    required: false
+    default: ''
+  report-output:
+    description: 'Path to write the JSON compliance report'
+    required: false
+    default: 'a2a-compliance-report.json'
+  comment-on-pr:
+    description: 'Post results as a PR comment (requires write permissions)'
+    required: false
+    default: 'true'
+
+outputs:
+  result:
+    description: 'Overall result: pass or fail'
+  passed:
+    description: 'Number of tests passed'
+  failed:
+    description: 'Number of tests failed'
+  warnings:
+    description: 'Number of warnings'
+  skipped:
+    description: 'Number of tests skipped'
+  total:
+    description: 'Total number of tests'
+  report-json:
+    description: 'Full JSON compliance report'
+  badge-url:
+    description: 'URL to the generated badge SVG (if badge-output was set)'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
