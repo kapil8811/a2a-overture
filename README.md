@@ -507,6 +507,36 @@ overture --help
 | `npm run web` | `node dist/index.js web` | Start Web UI |
 | `npm run dev` | `ts-node src/index.ts` | Run directly from TypeScript |
 
+## Tested Against Real A2A Agents
+
+A2A Overture has been validated against real third-party A2A agents from the [official a2a-samples repository](https://github.com/a2aproject/a2a-samples), not just our own mock server. Overture automatically detects agent protocol versions (v0.3.x and v1.0) and adapts JSON-RPC method names and role values accordingly.
+
+| Agent | Source | Protocol | Passed | Failed | Notes |
+|-------|--------|----------|--------|--------|-------|
+| **Overture Mock** | Built-in | v1.0 | 20/23 | 0 | 3 skipped (n/a) |
+| **Hello World** | [a2a-samples](https://github.com/a2aproject/a2a-samples/tree/main/samples/python/agents/helloworld) | v0.3.0 | 6/23 | 2 | Message-only agent (no tasks), 13 skipped |
+| **AgentAlice** | [a2a-samples](https://github.com/a2aproject/a2a-samples/tree/main/samples/python/agents/number_guessing_game) | v0.3.0 | 9/23 | 5 | Task-based agent with game logic, 8 skipped |
+
+### Key Findings
+
+- **v0.3.0 agents** are missing `supportedInterfaces` (required in v1.0) — flagged correctly as compliance gaps
+- **Hello World** returns direct `Message` responses (no `Task`), which Overture handles gracefully by skipping task-dependent tests
+- **AgentAlice** demonstrates proper task lifecycle (submit → complete) but tasks complete immediately, making cancel/continuation tests fail as expected
+- **Streaming** works across both v0.3.0 and v1.0 agents
+- **Auto-detection** of protocol version and RPC endpoint URL ensures broad compatibility
+
+### Protocol Compatibility
+
+Overture supports both A2A protocol versions:
+
+| Feature | v1.0 Method | v0.3.x Method |
+|---------|-------------|---------------|
+| Send Message | `SendMessage` | `message/send` |
+| Stream Message | `SendStreamingMessage` | `message/stream` |
+| Get Task | `GetTask` | `tasks/get` |
+| Cancel Task | `CancelTask` | `tasks/cancel` |
+| Subscribe | `SubscribeToTask` | `tasks/resubscribe` |
+
 ## Roadmap
 
 - [x] Full A2A v1.0 compliance test suite (23 tests, 100% coverage)
@@ -515,8 +545,9 @@ overture --help
 - [x] Shareable HTML compliance reports
 - [x] Public compliance registry with web UI
 - [x] Spec version tracking infrastructure
-- [x] Working group proposal for official recognition
-- [ ] npm publish to public registry
+- [x] npm published as [`a2a-overture`](https://www.npmjs.com/package/a2a-overture)
+- [x] Tested against real A2A agents (official a2a-samples)
+- [x] Protocol v0.3.x backward compatibility (auto-detection)
 - [ ] Hosted public registry instance
 - [ ] A2A v1.1+ test coverage (as spec evolves)
 

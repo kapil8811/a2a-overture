@@ -15,6 +15,21 @@ async function timed<T>(fn: () => Promise<T>): Promise<{ result: T; duration: nu
   return { result, duration: Date.now() - start };
 }
 
+/** Extract task from response, handling both v1.0 ({task: {...}}) and v0.3.x (direct {id, status, ...}) formats */
+function extractTask(response: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (response.task) return response.task as Record<string, unknown>;
+  // v0.3.x direct task format (has id and status at top level)
+  if (response.id && response.status && typeof response.status === 'object') return response;
+  return undefined;
+}
+
+/** Extract contextId from a response (either task.contextId or direct contextId) */
+function extractContextId(response: Record<string, unknown>): string | undefined {
+  const task = extractTask(response);
+  if (task) return task.contextId as string | undefined;
+  return response.contextId as string | undefined;
+}
+
 // ─── Test: Agent Card Reachable ──────────────────────────
 
 const agentCardReachable: ComplianceTest = {
@@ -125,6 +140,14 @@ const sendMessageWorks: ComplianceTest = {
       if (r.message) {
         return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: 'Received direct Message response', duration };
       }
+      // v0.3.x agents return the message directly (with kind, role, parts)
+      if (r.kind === 'message' || (r.role && r.parts)) {
+        return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: 'Received Message response (v0.3 format)', duration };
+      }
+      // v0.3.x agents may also return a task directly (with id, status)
+      if (r.id && r.status) {
+        return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: 'Received Task response (v0.3 format)', duration };
+      }
       return { id: this.id, name: this.name, description: this.description, result: 'fail', severity: 'error', message: 'Response contains neither task nor message', duration };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -144,12 +167,12 @@ const getTaskWorks: ComplianceTest = {
       const request = client.createTextMessage('Test message for GetTask validation.');
       const sendResult = await client.sendMessage(request);
       const sr = sendResult as Record<string, unknown>;
+      const task = extractTask(sr);
 
-      if (!sr.task) {
+      if (!task) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned a direct Message (no Task created) — GetTask not applicable' };
       }
 
-      const task = sr.task as Record<string, unknown>;
       const taskId = task.id as string;
 
       const { result: fetched, duration } = await timed(() => client.getTask(taskId));
@@ -260,12 +283,12 @@ const cancelTaskWorks: ComplianceTest = {
       const request = client.createTextMessage('Task to cancel for compliance test.');
       const sendResult = await client.sendMessage(request);
       const sr = sendResult as Record<string, unknown>;
+      const task = extractTask(sr);
 
-      if (!sr.task) {
+      if (!task) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned a direct Message (no Task) — cancel not applicable' };
       }
 
-      const task = sr.task as Record<string, unknown>;
       const taskId = task.id as string;
 
       const { result: cancelled, duration } = await timed(() => client.cancelTask(taskId));
@@ -305,8 +328,9 @@ const listTasksWorks: ComplianceTest = {
       return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: `${tasks.length} task(s) returned`, duration };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // Some agents may not support ListTasks
-      if (msg.includes('-32004') || msg.includes('not supported') || msg.includes('not found')) {
+      // Some agents may not support ListTasks (v0.3.x agents, or -32601 method not found)
+      if (msg.includes('-32004') || msg.includes('-32601') || msg.includes('-32600') ||
+          msg.includes('not supported') || msg.includes('not found') || msg.includes('validation error')) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent does not support ListTasks' };
       }
       return { id: this.id, name: this.name, description: this.description, result: 'fail', severity: 'error', message: msg };
@@ -326,13 +350,13 @@ const multiTurnContext: ComplianceTest = {
       const msg1 = client.createTextMessage('My name is Overture Test Bot.');
       const { result: res1 } = await timed(() => client.sendMessage(msg1));
       const r1 = res1 as Record<string, unknown>;
-      const task1 = r1.task as Record<string, unknown> | undefined;
+      const task1 = extractTask(r1);
 
       if (!task1) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned direct Message — task-based multi-turn not applicable' };
       }
 
-      const contextId = task1.contextId as string;
+      const contextId = extractContextId(r1) as string;
       if (!contextId) {
         return { id: this.id, name: this.name, description: this.description, result: 'warn', severity: 'warning', message: 'First response missing contextId — cannot test multi-turn' };
       }
@@ -343,16 +367,17 @@ const multiTurnContext: ComplianceTest = {
       const res2 = await client.sendMessage(msg2);
       const duration = Date.now() - start;
       const r2 = res2 as Record<string, unknown>;
-      const task2 = r2.task as Record<string, unknown> | undefined;
+      const task2 = extractTask(r2);
 
       if (!task2) {
         return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: 'Multi-turn accepted (agent returned Message for follow-up)', duration };
       }
 
-      if (task2.contextId === contextId) {
+      const contextId2 = extractContextId(r2);
+      if (contextId2 === contextId) {
         return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: `Context ${contextId} maintained across turns`, duration };
       }
-      return { id: this.id, name: this.name, description: this.description, result: 'warn', severity: 'warning', message: `Context changed: expected ${contextId}, got ${task2.contextId}`, duration };
+      return { id: this.id, name: this.name, description: this.description, result: 'warn', severity: 'warning', message: `Context changed: expected ${contextId}, got ${contextId2}`, duration };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { id: this.id, name: this.name, description: this.description, result: 'fail', severity: 'error', message: msg };
@@ -372,7 +397,7 @@ const multiTurnTask: ComplianceTest = {
       const msg1 = client.createTextMessage('Start a conversation for task continuation test.');
       const { result: res1 } = await timed(() => client.sendMessage(msg1));
       const r1 = res1 as Record<string, unknown>;
-      const task1 = r1.task as Record<string, unknown> | undefined;
+      const task1 = extractTask(r1);
 
       if (!task1) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned direct Message — task continuation not applicable' };
@@ -386,7 +411,7 @@ const multiTurnTask: ComplianceTest = {
       const res2 = await client.sendMessage(msg2);
       const duration = Date.now() - start;
       const r2 = res2 as Record<string, unknown>;
-      const task2 = r2.task as Record<string, unknown> | undefined;
+      const task2 = extractTask(r2);
 
       if (!task2) {
         return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: 'Follow-up accepted (agent returned Message)', duration };
@@ -415,7 +440,7 @@ const multiTurnHistory: ComplianceTest = {
       const msg1 = client.createTextMessage('First message for history test.');
       const res1 = await client.sendMessage(msg1);
       const r1 = res1 as Record<string, unknown>;
-      const task1 = r1.task as Record<string, unknown> | undefined;
+      const task1 = extractTask(r1);
 
       if (!task1) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned direct Message — history test not applicable' };
@@ -630,12 +655,12 @@ const subscribeTaskWorks: ComplianceTest = {
       const request = client.createTextMessage('Task for subscribe test.');
       const sendResult = await client.sendMessage(request);
       const sr = sendResult as Record<string, unknown>;
+      const task = extractTask(sr);
 
-      if (!sr.task) {
+      if (!task) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned direct Message — subscribe not applicable' };
       }
 
-      const task = sr.task as Record<string, unknown>;
       const taskId = task.id as string;
 
       let eventCount = 0;
@@ -678,11 +703,11 @@ const pushSetConfig: ComplianceTest = {
       const request = client.createTextMessage('Task for push config set test.');
       const sendResult = await client.sendMessage(request);
       const sr = sendResult as Record<string, unknown>;
-      if (!sr.task) {
+      const task = extractTask(sr);
+      if (!task) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned direct Message — push config not applicable' };
       }
 
-      const task = sr.task as Record<string, unknown>;
       const taskId = task.id as string;
 
       const { result: config, duration } = await timed(() => client.setPushNotificationConfig(taskId, {
@@ -719,11 +744,11 @@ const pushGetConfig: ComplianceTest = {
       const request = client.createTextMessage('Task for push config get test.');
       const sendResult = await client.sendMessage(request);
       const sr = sendResult as Record<string, unknown>;
-      if (!sr.task) {
+      const task = extractTask(sr);
+      if (!task) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned direct Message' };
       }
 
-      const task = sr.task as Record<string, unknown>;
       const taskId = task.id as string;
 
       await client.setPushNotificationConfig(taskId, {
@@ -761,11 +786,11 @@ const pushDeleteConfig: ComplianceTest = {
       const request = client.createTextMessage('Task for push config delete test.');
       const sendResult = await client.sendMessage(request);
       const sr = sendResult as Record<string, unknown>;
-      if (!sr.task) {
+      const task = extractTask(sr);
+      if (!task) {
         return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent returned direct Message' };
       }
 
-      const task = sr.task as Record<string, unknown>;
       const taskId = task.id as string;
 
       await client.setPushNotificationConfig(taskId, {

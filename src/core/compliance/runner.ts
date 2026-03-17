@@ -22,6 +22,25 @@ export async function runComplianceSuite(
   let agentCard: Record<string, unknown> = {};
   try {
     agentCard = await client.discoverAgentCard() as unknown as Record<string, unknown>;
+
+    // Auto-detect agent protocol version for method name compatibility
+    const detectedVersion = agentCard.protocolVersion as string | undefined;
+    if (detectedVersion) {
+      client.setAgentProtocolVersion(detectedVersion);
+    }
+
+    // Auto-detect RPC endpoint URL from agent card (e.g., /a2a/v1)
+    const agentUrl = agentCard.url as string | undefined;
+    if (agentUrl && clientOptions.binding === 'JSONRPC') {
+      try {
+        const parsed = new URL(agentUrl);
+        if (parsed.pathname && parsed.pathname !== '/') {
+          client.setRpcUrl(`${clientOptions.baseUrl.replace(/\/+$/, '')}${parsed.pathname}`);
+        }
+      } catch {
+        // Invalid URL, ignore
+      }
+    }
   } catch {
     // Will be caught by the agent card reachability test
   }

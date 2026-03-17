@@ -219,12 +219,30 @@ export class MockA2AServer {
 
   // ─── JSON-RPC Handler ──────────────────────────────────
 
+  // Map v0.3.x method names to v1.0 PascalCase
+  private normalizeMethodName(method: string): string {
+    const v03ToV1: Record<string, string> = {
+      'message/send': 'SendMessage',
+      'message/stream': 'SendStreamingMessage',
+      'tasks/get': 'GetTask',
+      'tasks/cancel': 'CancelTask',
+      'tasks/resubscribe': 'SubscribeToTask',
+      'tasks/pushNotificationConfig/set': 'SetPushNotificationConfig',
+      'tasks/pushNotificationConfig/get': 'GetPushNotificationConfig',
+      'tasks/pushNotificationConfig/delete': 'DeletePushNotificationConfig',
+      'agent/getAuthenticatedExtendedCard': 'GetExtendedAgentCard',
+    };
+    return v03ToV1[method] || method;
+  }
+
   private async handleJsonRpc(request: JsonRpcRequest, res: http.ServerResponse) {
     const { method, params, id } = request;
 
     try {
       let result: unknown;
-      switch (method) {
+      // Normalize method names: accept both v1.0 (PascalCase) and v0.3.x (slash-separated) formats
+      const normalizedMethod = this.normalizeMethodName(method);
+      switch (normalizedMethod) {
         case 'SendMessage':
           try {
             result = this.processMessage(params as unknown as SendMessageRequest);

@@ -14,6 +14,19 @@ import {
   PushNotificationConfig,
 } from './types';
 
+// JSON-RPC method name mapping for v0.3.x agents (Python SDK convention)
+const V03_METHOD_NAMES: Record<string, string> = {
+  'SendMessage': 'message/send',
+  'SendStreamingMessage': 'message/stream',
+  'GetTask': 'tasks/get',
+  'CancelTask': 'tasks/cancel',
+  'SubscribeToTask': 'tasks/resubscribe',
+  'SetPushNotificationConfig': 'tasks/pushNotificationConfig/set',
+  'GetPushNotificationConfig': 'tasks/pushNotificationConfig/get',
+  'DeletePushNotificationConfig': 'tasks/pushNotificationConfig/delete',
+  'GetExtendedAgentCard': 'agent/getAuthenticatedExtendedCard',
+};
+
 export interface ClientOptions {
   /** Base URL of the A2A agent */
   baseUrl: string;
@@ -21,6 +34,8 @@ export interface ClientOptions {
   binding: 'HTTP+JSON' | 'JSONRPC';
   /** A2A protocol version */
   protocolVersion?: string;
+  /** Detected agent protocol version (for method name compatibility) */
+  agentProtocolVersion?: string;
   /** Authorization header value (e.g., "Bearer <token>") */
   authorization?: string;
   /** Request timeout in milliseconds */
@@ -28,16 +43,53 @@ export interface ClientOptions {
 }
 
 export class A2AClient {
-  private readonly options: Required<ClientOptions>;
+  private options: Required<ClientOptions>;
+  /** Separate RPC URL for JSON-RPC calls (may differ from baseUrl when agent serves at subpath) */
+  private rpcUrl: string;
 
   constructor(options: ClientOptions) {
     this.options = {
       protocolVersion: '1.0',
+      agentProtocolVersion: '',
       authorization: '',
       timeout: 30000,
       ...options,
       baseUrl: options.baseUrl.replace(/\/+$/, ''),
     };
+    this.rpcUrl = this.options.baseUrl;
+  }
+
+  /** Update the detected agent protocol version for method name compatibility */
+  setAgentProtocolVersion(version: string): void {
+    this.options.agentProtocolVersion = version;
+  }
+
+  /** Set the RPC endpoint URL (e.g., when agent card specifies a subpath like /a2a/v1) */
+  setRpcUrl(url: string): void {
+    this.rpcUrl = url.replace(/\/+$/, '');
+  }
+
+  /** Resolve the JSON-RPC method name based on detected agent protocol version */
+  private resolveMethodName(method: string): string {
+    const agentVersion = this.options.agentProtocolVersion;
+    if (agentVersion && agentVersion.startsWith('0.')) {
+      return V03_METHOD_NAMES[method] || method;
+    }
+    return method;
+  }
+
+  /** Transform params for v0.3.x compatibility (role values, etc.) */
+  private transformParamsForAgent(params: Record<string, unknown>): Record<string, unknown> {
+    const agentVersion = this.options.agentProtocolVersion;
+    if (!agentVersion || !agentVersion.startsWith('0.')) {
+      return params;
+    }
+    // Deep clone and transform role values: ROLE_USER -> user, ROLE_AGENT -> agent
+    return JSON.parse(JSON.stringify(params), (_key, value) => {
+      if (value === 'ROLE_USER') return 'user';
+      if (value === 'ROLE_AGENT') return 'agent';
+      return value;
+    });
   }
 
   // ─── Agent Discovery ────────────────────────────────────
@@ -69,7 +121,7 @@ export class A2AClient {
 
   async *streamMessage(request: SendMessageRequest): AsyncGenerator<StreamResponse> {
     const url = this.options.binding === 'JSONRPC'
-      ? this.options.baseUrl
+      ? this.rpcUrl
       : `${this.options.baseUrl}/message:stream`;
 
     const body = this.options.binding === 'JSONRPC'
@@ -136,7 +188,7 @@ export class A2AClient {
 
   async *subscribeToTask(taskId: string): AsyncGenerator<StreamResponse> {
     const url = this.options.binding === 'JSONRPC'
-      ? this.options.baseUrl
+      ? this.rpcUrl
       : `${this.options.baseUrl}/tasks/${encodeURIComponent(taskId)}:subscribe`;
 
     const body = this.options.binding === 'JSONRPC'
@@ -222,14 +274,14 @@ export class A2AClient {
     return {
       jsonrpc: '2.0',
       id: crypto.randomUUID(),
-      method,
-      params,
+      method: this.resolveMethodName(method),
+      params: this.transformParamsForAgent(params),
     };
   }
 
   private async jsonRpcCall(method: string, params: Record<string, unknown>): Promise<unknown> {
     const request = this.buildJsonRpcRequest(method, params);
-    const response = await this.rawFetch(this.options.baseUrl, {
+    const response = await this.rawFetch(this.rpcUrl, {
       method: 'POST',
       headers: this.buildHeaders(),
       body: JSON.stringify(request),

@@ -1,10 +1,25 @@
 {
   "name": "a2a-overture",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The opening act for your A2A agents — discover, test, and certify A2A protocol compliance",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "overture": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "action/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kapil8811/a2a-overture.git"
+  },
+  "homepage": "https://github.com/kapil8811/a2a-overture#readme",
+  "bugs": {
+    "url": "https://github.com/kapil8811/a2a-overture/issues"
   },
   "scripts": {
     "build": "tsc",
@@ -26,7 +41,7 @@
     "protocol",
     "multi-agent"
   ],
-  "author": "",
+  "author": "kapil8811",
   "license": "Apache-2.0",
   "dependencies": {
     "chalk": "^5.3.0",
