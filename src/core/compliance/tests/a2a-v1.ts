@@ -1,6 +1,7 @@
 import { ComplianceTestResult } from '../../types';
 import { A2AClient, A2AError } from '../../client';
 import { validateAgentCard, ValidationIssue } from '../../validator';
+import { verifyAgentCardSignatures } from '../../signature';
 
 export interface ComplianceTest {
   id: string;
@@ -813,12 +814,36 @@ const pushDeleteConfig: ComplianceTest = {
   },
 };
 
+// ─── Test: Agent Card Signature Verification ─────────────
+
+const agentCardSignatureValid: ComplianceTest = {
+  id: 'card-signature-valid',
+  name: 'Agent Card signatures are valid',
+  description: 'If the Agent Card includes signatures, they should be cryptographically valid',
+  async run(client) {
+    const { result: card, duration } = await timed(() => client.discoverAgentCard());
+    const c = card as unknown as Record<string, unknown>;
+    const signatures = c.signatures as unknown[] | undefined;
+
+    if (!signatures || !Array.isArray(signatures) || signatures.length === 0) {
+      return { id: this.id, name: this.name, description: this.description, result: 'skip', severity: 'info', message: 'Agent Card has no signatures — verification skipped', duration };
+    }
+
+    const verification = await verifyAgentCardSignatures(c);
+    if (verification.valid) {
+      return { id: this.id, name: this.name, description: this.description, result: 'pass', severity: 'info', message: `${verification.verified}/${verification.signatureCount} signature(s) verified`, duration };
+    }
+    return { id: this.id, name: this.name, description: this.description, result: 'fail', severity: 'error', message: verification.errors.join('; '), duration };
+  },
+};
+
 export const allComplianceTests: ComplianceTest[] = [
   agentCardReachable,
   agentCardValid,
   requiredFieldsPresent,
   hasSkills,
   interfacesHttps,
+  agentCardSignatureValid,
   sendMessageWorks,
   getTaskWorks,
   invalidTaskReturnsError,

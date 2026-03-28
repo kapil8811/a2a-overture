@@ -1,3 +1,5 @@
+import * as https from 'https';
+import * as fs from 'fs';
 import {
   AgentCard,
   SendMessageRequest,
@@ -27,6 +29,15 @@ const V03_METHOD_NAMES: Record<string, string> = {
   'GetExtendedAgentCard': 'agent/getAuthenticatedExtendedCard',
 };
 
+export interface MtlsOptions {
+  /** Path to the client certificate (PEM) */
+  cert: string;
+  /** Path to the client private key (PEM) */
+  key: string;
+  /** Path to the CA certificate (PEM) for server verification */
+  ca?: string;
+}
+
 export interface ClientOptions {
   /** Base URL of the A2A agent */
   baseUrl: string;
@@ -40,12 +51,16 @@ export interface ClientOptions {
   authorization?: string;
   /** Request timeout in milliseconds */
   timeout?: number;
+  /** mTLS configuration — provide client certificate, key, and optional CA */
+  mtls?: MtlsOptions;
 }
 
 export class A2AClient {
   private options: Required<ClientOptions>;
   /** Separate RPC URL for JSON-RPC calls (may differ from baseUrl when agent serves at subpath) */
   private rpcUrl: string;
+  /** HTTPS agent for mTLS connections */
+  private httpsAgent: https.Agent | undefined;
 
   constructor(options: ClientOptions) {
     this.options = {
@@ -53,10 +68,21 @@ export class A2AClient {
       agentProtocolVersion: '',
       authorization: '',
       timeout: 30000,
+      mtls: undefined as unknown as MtlsOptions,
       ...options,
       baseUrl: options.baseUrl.replace(/\/+$/, ''),
     };
     this.rpcUrl = this.options.baseUrl;
+
+    // Build HTTPS agent for mTLS if configured
+    if (options.mtls) {
+      this.httpsAgent = new https.Agent({
+        cert: fs.readFileSync(options.mtls.cert),
+        key: fs.readFileSync(options.mtls.key),
+        ca: options.mtls.ca ? fs.readFileSync(options.mtls.ca) : undefined,
+        rejectUnauthorized: true,
+      });
+    }
   }
 
   /** Update the detected agent protocol version for method name compatibility */
@@ -373,7 +399,12 @@ export class A2AClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.options.timeout);
     try {
-      return await fetch(url, { ...init, signal: controller.signal });
+      const fetchOpts: any = { ...init, signal: controller.signal };
+      // For mTLS, pass the custom HTTPS agent as dispatcher (Node.js undici)
+      if (this.httpsAgent) {
+        fetchOpts.dispatcher = this.httpsAgent;
+      }
+      return await fetch(url, fetchOpts);
     } finally {
       clearTimeout(timeoutId);
     }

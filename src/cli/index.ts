@@ -7,6 +7,9 @@ import { registerCertifyCommand } from './commands/certify';
 import { registerMockCommand } from './commands/mock';
 import { registerWebCommand } from './commands/web';
 import { registerRegistryCommand } from './commands/registry';
+import { registerInteropCommand } from './commands/interop';
+import { registerBenchCommand } from './commands/bench';
+import { registerInitCommand } from './commands/init';
 
 export function createCli(): Command {
   const program = new Command();
@@ -24,6 +27,9 @@ export function createCli(): Command {
   registerMockCommand(program);
   registerWebCommand(program);
   registerRegistryCommand(program);
+  registerInteropCommand(program);
+  registerBenchCommand(program);
+  registerInitCommand(program);
 
   return program;
 }

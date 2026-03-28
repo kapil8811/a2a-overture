@@ -12,9 +12,16 @@ export function registerDiscoverCommand(program: Command) {
     .option('--validate', 'Validate the Agent Card against the A2A spec', false)
     .option('--json', 'Output raw JSON', false)
     .option('--save <file>', 'Save the Agent Card to a file')
-    .action(async (url: string, opts: { cardUrl?: string; validate: boolean; json: boolean; save?: string }) => {
+    .option('--mtls-cert <file>', 'Client certificate file for mTLS')
+    .option('--mtls-key <file>', 'Client private key file for mTLS')
+    .option('--mtls-ca <file>', 'CA certificate file for mTLS')
+    .action(async (url: string, opts: { cardUrl?: string; validate: boolean; json: boolean; save?: string; mtlsCert?: string; mtlsKey?: string; mtlsCa?: string }) => {
       try {
-        const client = new A2AClient({ baseUrl: url, binding: 'HTTP+JSON' });
+        const client = new A2AClient({
+          baseUrl: url,
+          binding: 'HTTP+JSON',
+          mtls: opts.mtlsCert && opts.mtlsKey ? { cert: opts.mtlsCert, key: opts.mtlsKey, ca: opts.mtlsCa } : undefined,
+        });
         const card = await client.discoverAgentCard(opts.cardUrl);
 
         if (opts.json) {

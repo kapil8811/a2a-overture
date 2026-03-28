@@ -1,6 +1,7 @@
 import * as http from 'http';
 import * as path from 'path';
 import * as fs from 'fs';
+import { saveReport, listReports, loadReport, deleteReport } from './store';
 
 export interface WebUIOptions {
   port: number;
@@ -43,6 +44,20 @@ export class WebUIServer {
     // API proxy endpoint — forward requests to A2A agents
     if (url.pathname === '/api/proxy' && req.method === 'POST') {
       return this.handleProxy(req, res);
+    }
+
+    // Report persistence API
+    if (url.pathname === '/api/reports' && req.method === 'GET') {
+      return this.handleListReports(res);
+    }
+    if (url.pathname === '/api/reports' && req.method === 'POST') {
+      return this.handleSaveReport(req, res);
+    }
+    const reportMatch = url.pathname.match(/^\/api\/reports\/([^/]+)$/);
+    if (reportMatch) {
+      const id = decodeURIComponent(reportMatch[1]);
+      if (req.method === 'GET') return this.handleLoadReport(id, res);
+      if (req.method === 'DELETE') return this.handleDeleteReport(id, res);
     }
 
     // Serve the SPA
@@ -97,6 +112,61 @@ export class WebUIServer {
       const message = err instanceof Error ? err.message : 'Proxy request failed';
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: message }));
+    }
+  }
+
+  private async handleListReports(res: http.ServerResponse) {
+    try {
+      const reports = listReports();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(reports));
+    } catch (err: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to list reports' }));
+    }
+  }
+
+  private async handleSaveReport(req: http.IncomingMessage, res: http.ServerResponse) {
+    try {
+      const body = await readBody(req);
+      const id = saveReport(body as any);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ id }));
+    } catch (err: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to save report' }));
+    }
+  }
+
+  private async handleLoadReport(id: string, res: http.ServerResponse) {
+    try {
+      const report = loadReport(id);
+      if (!report) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Report not found' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(report));
+    } catch (err: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load report' }));
+    }
+  }
+
+  private async handleDeleteReport(id: string, res: http.ServerResponse) {
+    try {
+      const deleted = deleteReport(id);
+      if (!deleted) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Report not found' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to delete report' }));
     }
   }
 }
@@ -465,6 +535,8 @@ function getHtmlContent(): string {
     <option value="validate">Validate</option>
     <option value="send" selected>Send</option>
     <option value="certify">Certify</option>
+    <option value="interop">Interop</option>
+    <option value="bench">Bench</option>
   </select>
   <input type="text" id="urlInput" placeholder="Enter agent URL — e.g. http://localhost:3000" value="" spellcheck="false" />
   <button class="btn btn-primary" id="goBtn" onclick="executeAction()">Send</button>
@@ -490,6 +562,9 @@ function getHtmlContent(): string {
   <button class="btn btn-secondary btn-sm" onclick="quickAction('validate')">✅ Validate</button>
   <button class="btn btn-secondary btn-sm" onclick="quickAction('send')">📨 Send Message</button>
   <button class="btn btn-secondary btn-sm" onclick="quickAction('certify')">📋 Certify</button>
+  <button class="btn btn-secondary btn-sm" onclick="quickAction('interop')">🔗 Interop</button>
+  <button class="btn btn-secondary btn-sm" onclick="quickAction('bench')">⚡ Bench</button>
+  <button class="btn btn-secondary btn-sm" onclick="showHistory()">📜 History</button>
 </div>
 
 <div class="main">
@@ -544,7 +619,7 @@ let lastResponse = null;
 const PROXY_URL = location.origin + '/api/proxy';
 
 // ─── Action Mapping ──────────────────────────────────────
-const actionLabels = { discover: 'Discover', validate: 'Validate', send: 'Send', certify: 'Certify' };
+const actionLabels = { discover: 'Discover', validate: 'Validate', send: 'Send', certify: 'Certify', interop: 'Interop', bench: 'Bench' };
 
 document.getElementById('actionSelect').addEventListener('change', function() {
   document.getElementById('goBtn').textContent = actionLabels[this.value] || 'Send';
@@ -610,6 +685,12 @@ async function executeAction() {
         break;
       case 'certify':
         await doCertify(baseUrl, binding, auth);
+        break;
+      case 'interop':
+        await doInterop(baseUrl, binding, auth);
+        break;
+      case 'bench':
+        await doBench(baseUrl, binding, auth);
         break;
     }
     const elapsed = Math.round(performance.now() - startTime);
@@ -1399,6 +1480,8 @@ function showComplianceReport(results, total) {
     html += '<div class="validation-result validation-fail" style="margin-top:16px"><div class="validation-title">✖ FAIL — ' + failed + ' compliance issue(s) found</div></div>';
   }
 
+  html += '<div style="margin-top:12px;text-align:right"><button class="btn btn-primary btn-sm" onclick="saveCurrentReport()">💾 Save Report</button></div>';
+
   document.getElementById('responsePretty').innerHTML = html;
 
   // Also fill raw tab with JSON report
@@ -1445,6 +1528,462 @@ function getStateColor(state) {
 document.getElementById('urlInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') executeAction();
 });
+
+// ─── Interop ─────────────────────────────────────────────
+async function doInterop(baseUrl, binding, auth) {
+  // Parse comma/space separated URLs from the body or URL input
+  const bodyText = document.getElementById('requestEditor').value.trim();
+  let urls = [];
+  if (bodyText) {
+    urls = bodyText.split(/[,\\n]+/).map(function(u) { return u.trim(); }).filter(Boolean);
+  }
+  // Always include the main URL
+  if (!urls.includes(baseUrl)) urls.unshift(baseUrl);
+  if (urls.length < 2) {
+    showError('Interop requires at least 2 agent URLs. Enter additional URLs in the request body (one per line or comma-separated).');
+    return;
+  }
+
+  showLoading('interop');
+
+  // Step 1: Discover all agents
+  const agents = [];
+  const results = [];
+  for (const url of urls) {
+    try {
+      const r = await proxyRequest(url + '/.well-known/agent-card.json', 'GET', auth);
+      const card = JSON.parse(r.body);
+      agents.push({ url: url, name: card.name || url, card: card });
+      results.push({ id: 'discover-' + url, name: 'Discover: ' + (card.name || url), result: 'pass', message: 'Agent Card fetched' });
+    } catch (err) {
+      results.push({ id: 'discover-' + url, name: 'Discover: ' + url, result: 'fail', message: err.message });
+    }
+    showInteropProgress(results, urls.length * urls.length);
+  }
+
+  // Step 2: Cross-discover (each agent discovers every other agent via proxy)
+  for (let i = 0; i < agents.length; i++) {
+    for (let j = 0; j < agents.length; j++) {
+      if (i === j) continue;
+      const from = agents[i], to = agents[j];
+      try {
+        const r = await proxyRequest(to.url + '/.well-known/agent-card.json', 'GET', auth);
+        if (r.status === 200) {
+          results.push({ id: 'xdiscover-' + i + '-' + j, name: 'Cross-discover: ' + from.name + ' → ' + to.name, result: 'pass', message: 'Discovery succeeded' });
+        } else {
+          results.push({ id: 'xdiscover-' + i + '-' + j, name: 'Cross-discover: ' + from.name + ' → ' + to.name, result: 'fail', message: 'HTTP ' + r.status });
+        }
+      } catch (err) {
+        results.push({ id: 'xdiscover-' + i + '-' + j, name: 'Cross-discover: ' + from.name + ' → ' + to.name, result: 'fail', message: err.message });
+      }
+      showInteropProgress(results, urls.length * urls.length);
+    }
+  }
+
+  // Step 3: Cross-message (each agent sends a message to every other agent)
+  for (let i = 0; i < agents.length; i++) {
+    for (let j = 0; j < agents.length; j++) {
+      if (i === j) continue;
+      const from = agents[i], to = agents[j];
+      try {
+        const msgPayload = { message: { messageId: crypto.randomUUID(), role: 'ROLE_USER', parts: [{ text: 'Hello from ' + from.name }] } };
+        let url, body;
+        if (binding === 'JSONRPC') {
+          url = to.url; body = { jsonrpc: '2.0', id: crypto.randomUUID(), method: 'SendMessage', params: msgPayload };
+        } else {
+          url = to.url + '/message:send'; body = msgPayload;
+        }
+        const r = await proxyRequest(url, 'POST', auth, body);
+        if (r.status === 200) {
+          results.push({ id: 'xmessage-' + i + '-' + j, name: 'Cross-message: ' + from.name + ' → ' + to.name, result: 'pass', message: 'Message accepted' });
+        } else {
+          results.push({ id: 'xmessage-' + i + '-' + j, name: 'Cross-message: ' + from.name + ' → ' + to.name, result: 'fail', message: 'HTTP ' + r.status });
+        }
+      } catch (err) {
+        results.push({ id: 'xmessage-' + i + '-' + j, name: 'Cross-message: ' + from.name + ' → ' + to.name, result: 'fail', message: err.message });
+      }
+      showInteropProgress(results, urls.length * urls.length);
+    }
+  }
+
+  showInteropReport(results, agents);
+}
+
+function showInteropProgress(results, total) {
+  const passed = results.filter(function(r) { return r.result === 'pass'; }).length;
+  let html = '<div class="compliance-header">';
+  html += '<div class="response-meta"><span class="meta-item">\uD83D\uDD17 Interop testing... <strong>' + results.length + ' tests</strong></span></div>';
+  html += '</div>';
+  results.forEach(function(test) {
+    const icon = test.result === 'pass' ? '✔' : test.result === 'fail' ? '✖' : '○';
+    const color = test.result === 'pass' ? 'var(--green)' : test.result === 'fail' ? 'var(--red)' : 'var(--text-dim)';
+    html += '<div class="test-row"><span class="test-icon" style="color:' + color + '">' + icon + '</span><span class="test-name">' + escapeHtml(test.name) + '</span></div>';
+    if (test.message && test.result === 'fail') html += '<div class="test-message" style="color:var(--red)">' + escapeHtml(test.message) + '</div>';
+  });
+  document.getElementById('responsePretty').innerHTML = html;
+}
+
+function showInteropReport(results, agents) {
+  const passed = results.filter(function(r) { return r.result === 'pass'; }).length;
+  const failed = results.filter(function(r) { return r.result === 'fail'; }).length;
+  const total = results.length;
+  const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+  let html = '<div class="compliance-header">';
+  html += '<h3 style="color:var(--accent);margin:0 0 8px 0">\uD83D\uDD17 Multi-Agent Interop Report</h3>';
+  html += '<div class="response-meta">' + statusBadge(failed === 0 ? 200 : 400) + '<span class="meta-item"><strong>' + pct + '%</strong> pass rate</span>';
+  html += '<span class="meta-item">' + agents.length + ' agents tested</span></div>';
+  html += '<div class="pass-rate-bar"><div class="pass-rate-fill" style="width:' + pct + '%;background:' + (failed === 0 ? 'var(--green)' : 'var(--orange)') + '"></div></div>';
+  html += '<div style="font-size:13px;color:var(--text-dim);margin-top:4px">✔ ' + passed + ' passed  ✖ ' + failed + ' failed</div>';
+  html += '</div>';
+
+  // Agent list
+  html += '<div class="card-section"><h3>Agents</h3>';
+  agents.forEach(function(a) {
+    html += field(a.name, '<span style="font-family:var(--mono);color:var(--text-dim)">' + escapeHtml(a.url) + '</span>');
+  });
+  html += '</div>';
+
+  // Test results
+  results.forEach(function(test) {
+    const icon = test.result === 'pass' ? '✔' : test.result === 'fail' ? '✖' : '○';
+    const color = test.result === 'pass' ? 'var(--green)' : test.result === 'fail' ? 'var(--red)' : 'var(--text-dim)';
+    html += '<div class="test-row"><span class="test-icon" style="color:' + color + '">' + icon + '</span><span class="test-name">' + escapeHtml(test.name) + '</span></div>';
+    if (test.message && test.result !== 'pass') html += '<div class="test-message" style="color:' + (test.result === 'fail' ? 'var(--red)' : 'var(--text-dim)') + '">' + escapeHtml(test.message) + '</div>';
+  });
+
+  if (failed === 0) {
+    html += '<div class="validation-result validation-pass" style="margin-top:16px"><div class="validation-title">✔ All agents are interoperable</div></div>';
+  } else {
+    html += '<div class="validation-result validation-fail" style="margin-top:16px"><div class="validation-title">✖ ' + failed + ' interop issue(s) found</div></div>';
+  }
+
+  document.getElementById('responsePretty').innerHTML = html;
+  document.getElementById('rawBody').textContent = JSON.stringify({ agents: agents.map(function(a) { return { name: a.name, url: a.url }; }), passed: passed, failed: failed, total: total, passRate: pct + '%', tests: results }, null, 2);
+}
+
+// ─── Bench ───────────────────────────────────────────────
+async function doBench(baseUrl, binding, auth) {
+  const bodyText = document.getElementById('requestEditor').value.trim();
+  let config = { concurrency: 5, duration: 10 };
+  try {
+    const parsed = JSON.parse(bodyText);
+    if (parsed.concurrency) config.concurrency = parsed.concurrency;
+    if (parsed.duration) config.duration = parsed.duration;
+  } catch { /* use defaults */ }
+
+  showLoading('bench (' + config.concurrency + ' concurrent, ' + config.duration + 's)');
+
+  const latencies = [];
+  let successes = 0, failures = 0, running = true;
+  const startTime = performance.now();
+  const endTime = startTime + config.duration * 1000;
+
+  // Update UI periodically
+  const updateInterval = setInterval(function() {
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+    const total = successes + failures;
+    const throughput = elapsed > 0 ? (total / elapsed).toFixed(0) : 0;
+    showBenchProgress(total, successes, failures, elapsed, config.duration, throughput);
+  }, 500);
+
+  // Run concurrent workers
+  async function worker() {
+    while (performance.now() < endTime) {
+      const t0 = performance.now();
+      try {
+        const msgPayload = { message: { messageId: crypto.randomUUID(), role: 'ROLE_USER', parts: [{ text: 'Benchmark ping' }] } };
+        let url, body;
+        if (binding === 'JSONRPC') {
+          url = baseUrl; body = { jsonrpc: '2.0', id: crypto.randomUUID(), method: 'SendMessage', params: msgPayload };
+        } else {
+          url = baseUrl + '/message:send'; body = msgPayload;
+        }
+        const r = await proxyRequest(url, 'POST', auth, body);
+        latencies.push(performance.now() - t0);
+        if (r.status >= 200 && r.status < 400) successes++;
+        else failures++;
+      } catch {
+        latencies.push(performance.now() - t0);
+        failures++;
+      }
+    }
+  }
+
+  const workers = [];
+  for (let i = 0; i < config.concurrency; i++) workers.push(worker());
+  await Promise.all(workers);
+  clearInterval(updateInterval);
+
+  // Compute stats
+  latencies.sort(function(a, b) { return a - b; });
+  const totalReqs = successes + failures;
+  const elapsed = (performance.now() - startTime) / 1000;
+  const throughput = totalReqs / elapsed;
+  const stats = {
+    totalRequests: totalReqs,
+    successes: successes,
+    failures: failures,
+    errorRate: totalReqs > 0 ? ((failures / totalReqs) * 100).toFixed(1) + '%' : '0%',
+    throughput: throughput.toFixed(0) + ' req/s',
+    duration: elapsed.toFixed(1) + 's',
+    concurrency: config.concurrency,
+    latency: latencies.length > 0 ? {
+      min: latencies[0].toFixed(2) + 'ms',
+      mean: (latencies.reduce(function(a, b) { return a + b; }, 0) / latencies.length).toFixed(2) + 'ms',
+      median: latencies[Math.floor(latencies.length * 0.5)].toFixed(2) + 'ms',
+      p95: latencies[Math.floor(latencies.length * 0.95)].toFixed(2) + 'ms',
+      p99: latencies[Math.floor(latencies.length * 0.99)].toFixed(2) + 'ms',
+      max: latencies[latencies.length - 1].toFixed(2) + 'ms',
+    } : null,
+  };
+
+  showBenchReport(stats, baseUrl);
+}
+
+function showBenchProgress(total, successes, failures, elapsed, duration, throughput) {
+  const pct = Math.min(100, Math.round((elapsed / duration) * 100));
+  let html = '<div class="compliance-header">';
+  html += '<h3 style="color:var(--accent);margin:0 0 8px 0">⚡ Benchmarking...</h3>';
+  html += '<div class="pass-rate-bar"><div class="pass-rate-fill" style="width:' + pct + '%;background:var(--cyan)"></div></div>';
+  html += '<div style="font-size:13px;color:var(--text-dim);margin-top:8px">' + elapsed + 's / ' + duration + 's — ' + total + ' requests — ' + throughput + ' req/s</div>';
+  html += '</div>';
+  document.getElementById('responsePretty').innerHTML = html;
+}
+
+function showBenchReport(stats, url) {
+  let html = '<div class="compliance-header">';
+  html += '<h3 style="color:var(--accent);margin:0 0 8px 0">⚡ Benchmark Results</h3>';
+  html += '<div class="response-meta"><span class="meta-item" style="font-family:var(--mono);color:var(--cyan)">' + escapeHtml(url) + '</span></div>';
+  html += '</div>';
+
+  html += '<div class="card-section"><h3>Summary</h3>';
+  html += field('Total Requests', '<strong>' + stats.totalRequests + '</strong>');
+  html += field('Successes', '<span style="color:var(--green)">' + stats.successes + '</span>');
+  html += field('Failures', '<span style="color:' + (stats.failures > 0 ? 'var(--red)' : 'var(--green)') + '">' + stats.failures + '</span>');
+  html += field('Error Rate', stats.errorRate);
+  html += field('Throughput', '<strong style="color:var(--cyan)">' + stats.throughput + '</strong>');
+  html += field('Duration', stats.duration);
+  html += field('Concurrency', stats.concurrency);
+  html += '</div>';
+
+  if (stats.latency) {
+    html += '<div class="card-section"><h3>Latency</h3>';
+    html += field('Min', stats.latency.min);
+    html += field('Mean', stats.latency.mean);
+    html += field('Median (p50)', stats.latency.median);
+    html += field('p95', stats.latency.p95);
+    html += field('p99', stats.latency.p99);
+    html += field('Max', stats.latency.max);
+    html += '</div>';
+  }
+
+  if (stats.failures === 0) {
+    html += '<div class="validation-result validation-pass" style="margin-top:16px"><div class="validation-title">✔ Benchmark complete — 0% error rate</div></div>';
+  } else {
+    html += '<div class="validation-result validation-fail" style="margin-top:16px"><div class="validation-title">⚠ ' + stats.errorRate + ' error rate detected</div></div>';
+  }
+
+  html += '<div style="margin-top:8px;font-size:12px;color:var(--text-dim)">Tip: Set concurrency/duration in the request body: <code style="background:var(--surface2);padding:2px 6px;border-radius:3px">{"concurrency": 10, "duration": 30}</code></div>';
+
+  document.getElementById('responsePretty').innerHTML = html;
+  document.getElementById('rawBody').textContent = JSON.stringify(stats, null, 2);
+}
+
+// ─── Report Persistence ──────────────────────────────────
+let lastCertifyReport = null;
+
+const _origShowComplianceReport = showComplianceReport;
+// Intercept to capture report data
+(function() {
+  const orig = window.showComplianceReport || showComplianceReport;
+  // We capture lastCertifyReport in doCertify below instead
+})();
+
+// Patch doCertify's showComplianceReport call — we store the data via a global
+function captureReport(results, total) {
+  const passed = results.filter(function(r) { return r.result === 'pass'; }).length;
+  const failed = results.filter(function(r) { return r.result === 'fail'; }).length;
+  lastCertifyReport = {
+    agentUrl: document.getElementById('urlInput').value.replace(/\\/+$/, ''),
+    timestamp: new Date().toISOString(),
+    passed: passed,
+    failed: failed,
+    total: total,
+    passRate: total > 0 ? Math.round((passed / total) * 100) + '%' : '0%',
+    tests: results,
+  };
+}
+
+// Override showComplianceReport to also capture
+const _showComp = showComplianceReport;
+showComplianceReport = function(results, total) {
+  captureReport(results, total);
+  _showComp(results, total);
+};
+
+async function saveCurrentReport() {
+  if (!lastCertifyReport) {
+    alert('No certification report to save. Run Certify first.');
+    return;
+  }
+  try {
+    const resp = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lastCertifyReport),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      alert('Report saved: ' + data.id);
+    } else {
+      alert('Failed to save: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Failed to save report: ' + err.message);
+  }
+}
+
+async function showHistory() {
+  showLoading('history');
+  try {
+    const resp = await fetch('/api/reports');
+    const reports = await resp.json();
+    if (!reports.length) {
+      document.getElementById('responsePretty').innerHTML = '<div class="empty-state"><div style="font-size:48px;opacity:0.3">📜</div><div>No saved reports yet</div><div class="hint">Run Certify on an agent, then click 💾 Save Report</div></div>';
+      return;
+    }
+    let html = '<h3 style="color:var(--accent);margin:0 0 12px 0">📜 Saved Reports</h3>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    html += '<tr style="border-bottom:1px solid var(--border);color:var(--text-dim)">';
+    html += '<th style="text-align:left;padding:8px">Agent</th>';
+    html += '<th style="text-align:left;padding:8px">Date</th>';
+    html += '<th style="text-align:left;padding:8px">Pass Rate</th>';
+    html += '<th style="text-align:right;padding:8px">Actions</th></tr>';
+
+    reports.forEach(function(r) {
+      const date = new Date(r.timestamp).toLocaleString();
+      html += '<tr style="border-bottom:1px solid var(--border)">';
+      html += '<td style="padding:8px;color:var(--cyan)">' + escapeHtml(r.agentUrl || r.id) + '</td>';
+      html += '<td style="padding:8px;color:var(--text-dim)">' + escapeHtml(date) + '</td>';
+      html += '<td style="padding:8px">' + escapeHtml(r.passRate || '?') + '</td>';
+      html += '<td style="padding:8px;text-align:right">';
+      html += '<button class="btn btn-secondary btn-sm" onclick="loadSavedReport(\\'' + escapeHtml(r.id) + '\\')">View</button> ';
+      html += '<button class="btn btn-secondary btn-sm" onclick="compareWithSaved(\\'' + escapeHtml(r.id) + '\\')">Compare</button> ';
+      html += '<button class="btn btn-secondary btn-sm" style="color:var(--red)" onclick="deleteSavedReport(\\'' + escapeHtml(r.id) + '\\')">Delete</button>';
+      html += '</td></tr>';
+    });
+    html += '</table>';
+    document.getElementById('responsePretty').innerHTML = html;
+    document.getElementById('rawBody').textContent = JSON.stringify(reports, null, 2);
+  } catch (err) {
+    showError('Failed to load history: ' + err.message);
+  }
+}
+
+async function loadSavedReport(id) {
+  try {
+    const resp = await fetch('/api/reports/' + encodeURIComponent(id));
+    const report = await resp.json();
+    if (!resp.ok) { alert(report.error || 'Not found'); return; }
+    showComplianceReport(report.tests || [], report.total || 0);
+    document.getElementById('rawBody').textContent = JSON.stringify(report, null, 2);
+  } catch (err) {
+    alert('Failed to load: ' + err.message);
+  }
+}
+
+async function compareWithSaved(id) {
+  if (!lastCertifyReport) {
+    alert('Run Certify first to get a current report, then Compare.');
+    return;
+  }
+  try {
+    const resp = await fetch('/api/reports/' + encodeURIComponent(id));
+    const saved = await resp.json();
+    if (!resp.ok) { alert(saved.error || 'Not found'); return; }
+    showDiffReport(saved, lastCertifyReport);
+  } catch (err) {
+    alert('Failed to load for comparison: ' + err.message);
+  }
+}
+
+function showDiffReport(before, after) {
+  const rank = { pass: 3, warn: 2, skip: 1, fail: 0 };
+  const beforeMap = {};
+  (before.tests || []).forEach(function(t) { beforeMap[t.id] = t; });
+  const afterMap = {};
+  (after.tests || []).forEach(function(t) { afterMap[t.id] = t; });
+  const allIds = new Set(Object.keys(beforeMap).concat(Object.keys(afterMap)));
+
+  let regressions = 0, improvements = 0, newTests = 0, removed = 0;
+  let rows = '';
+  allIds.forEach(function(id) {
+    const b = beforeMap[id];
+    const a = afterMap[id];
+    let change = 'unchanged', bResult = '-', aResult = '-', name = id;
+    if (b && a) {
+      bResult = b.result; aResult = a.result; name = a.name || b.name || id;
+      if ((rank[aResult] || 0) > (rank[bResult] || 0)) { change = 'improved'; improvements++; }
+      else if ((rank[aResult] || 0) < (rank[bResult] || 0)) { change = 'regressed'; regressions++; }
+    } else if (!b && a) {
+      change = 'new'; aResult = a.result; name = a.name || id; newTests++;
+    } else if (b && !a) {
+      change = 'removed'; bResult = b.result; name = b.name || id; removed++;
+    }
+
+    let color = 'var(--text-dim)';
+    let icon = '—';
+    if (change === 'improved') { color = 'var(--green)'; icon = '▲'; }
+    if (change === 'regressed') { color = 'var(--red)'; icon = '▼'; }
+    if (change === 'new') { color = 'var(--cyan)'; icon = '+'; }
+    if (change === 'removed') { color = 'var(--yellow)'; icon = '−'; }
+
+    rows += '<tr style="border-bottom:1px solid var(--border);color:' + color + '">';
+    rows += '<td style="padding:6px 8px">' + icon + '</td>';
+    rows += '<td style="padding:6px 8px">' + escapeHtml(name) + '</td>';
+    rows += '<td style="padding:6px 8px;text-align:center">' + bResult + '</td>';
+    rows += '<td style="padding:6px 8px;text-align:center">' + aResult + '</td>';
+    rows += '<td style="padding:6px 8px">' + change + '</td>';
+    rows += '</tr>';
+  });
+
+  let html = '<h3 style="color:var(--accent);margin:0 0 8px 0">📊 Comparison Report</h3>';
+  html += '<div style="font-size:13px;margin-bottom:12px;color:var(--text-dim)">';
+  html += 'Before: <span style="color:var(--cyan)">' + escapeHtml(before.agentUrl || '?') + '</span> (' + escapeHtml(before.passRate || '?') + ')';
+  html += ' → After: <span style="color:var(--cyan)">' + escapeHtml(after.agentUrl || '?') + '</span> (' + escapeHtml(after.passRate || '?') + ')';
+  html += '</div>';
+
+  if (regressions > 0) {
+    html += '<div style="color:var(--red);font-weight:600;margin-bottom:8px">⚠ ' + regressions + ' regression(s) detected</div>';
+  }
+  if (improvements > 0) {
+    html += '<div style="color:var(--green);margin-bottom:8px">▲ ' + improvements + ' improvement(s)</div>';
+  }
+
+  html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+  html += '<tr style="border-bottom:1px solid var(--border);color:var(--text-dim)">';
+  html += '<th style="padding:6px 8px;width:30px"></th>';
+  html += '<th style="text-align:left;padding:6px 8px">Test</th>';
+  html += '<th style="text-align:center;padding:6px 8px">Before</th>';
+  html += '<th style="text-align:center;padding:6px 8px">After</th>';
+  html += '<th style="text-align:left;padding:6px 8px">Change</th></tr>';
+  html += rows + '</table>';
+
+  document.getElementById('responsePretty').innerHTML = html;
+  document.getElementById('rawBody').textContent = JSON.stringify({ regressions: regressions, improvements: improvements, newTests: newTests, removed: removed }, null, 2);
+}
+
+async function deleteSavedReport(id) {
+  if (!confirm('Delete report ' + id + '?')) return;
+  try {
+    const resp = await fetch('/api/reports/' + encodeURIComponent(id), { method: 'DELETE' });
+    if (resp.ok) showHistory();
+    else alert('Failed to delete');
+  } catch (err) {
+    alert('Failed to delete: ' + err.message);
+  }
+}
 </script>
 </body>
 </html>`;

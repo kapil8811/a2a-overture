@@ -278,6 +278,7 @@ export class MockA2AServer {
             state: TaskState.CANCELED,
             timestamp: new Date().toISOString(),
           };
+          this.deliverWebhook(p.id as string, stored.task).catch(() => {});
           result = stored.task;
           break;
         }
@@ -506,6 +507,7 @@ export class MockA2AServer {
       state: TaskState.CANCELED,
       timestamp: new Date().toISOString(),
     };
+    this.deliverWebhook(taskId, stored.task).catch(() => {});
     this.sendJson(res, 200, stored.task);
   }
 
@@ -658,6 +660,9 @@ export class MockA2AServer {
         parts: [{ text: responseText }],
       }];
 
+      // Deliver webhook for task update
+      this.deliverWebhook(existingTaskId, task).catch(() => {});
+
       return { task };
     }
 
@@ -694,7 +699,55 @@ export class MockA2AServer {
       this.pushConfigs.set(taskId, request.configuration.taskPushNotificationConfig);
     }
 
+    // Deliver webhook notification if push config is set for this task
+    this.deliverWebhook(taskId, task).catch(() => { /* best-effort delivery */ });
+
     return { task };
+  }
+
+  // ─── Webhook Delivery ──────────────────────────────────
+
+  /**
+   * Deliver a push notification to the configured webhook URL for a task.
+   * This is fire-and-forget (best-effort). Failures are silently ignored.
+   */
+  private async deliverWebhook(taskId: string, task: Task): Promise<void> {
+    const config = this.pushConfigs.get(taskId);
+    if (!config?.url) return;
+
+    const payload = JSON.stringify({
+      taskId: task.id,
+      contextId: task.contextId,
+      status: task.status,
+      artifacts: task.artifacts,
+      timestamp: new Date().toISOString(),
+    });
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'A2A-Version': '1.0',
+    };
+
+    // Add authentication if configured
+    if (config.authentication) {
+      const { scheme, credentials } = config.authentication;
+      if (scheme && credentials) {
+        headers['Authorization'] = `${scheme} ${credentials}`;
+      }
+    } else if (config.token) {
+      headers['Authorization'] = `Bearer ${config.token}`;
+    }
+
+    try {
+      await fetch(config.url, {
+        method: 'POST',
+        headers,
+        body: payload,
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch {
+      // Webhook delivery is best-effort
+    }
   }
 
   private generateResponse(input: string): string {

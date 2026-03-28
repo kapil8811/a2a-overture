@@ -12,6 +12,9 @@ export function registerSendCommand(program: Command) {
     .option('--context-id <id>', 'Use a specific context ID')
     .option('--json', 'Output raw JSON response', false)
     .option('--stream', 'Use streaming mode', false)
+    .option('--mtls-cert <file>', 'Client certificate file for mTLS')
+    .option('--mtls-key <file>', 'Client private key file for mTLS')
+    .option('--mtls-ca <file>', 'CA certificate file for mTLS')
     .action(async (url: string, message: string, opts: {
       binding: string;
       auth?: string;
@@ -19,12 +22,16 @@ export function registerSendCommand(program: Command) {
       contextId?: string;
       json: boolean;
       stream: boolean;
+      mtlsCert?: string;
+      mtlsKey?: string;
+      mtlsCa?: string;
     }) => {
       try {
         const client = new A2AClient({
           baseUrl: url,
           binding: opts.binding as 'HTTP+JSON' | 'JSONRPC',
           authorization: opts.auth,
+          mtls: opts.mtlsCert && opts.mtlsKey ? { cert: opts.mtlsCert, key: opts.mtlsKey, ca: opts.mtlsCa } : undefined,
         });
 
         const request = client.createTextMessage(message, opts.taskId, opts.contextId);
