@@ -1,6 +1,6 @@
 {
   "name": "a2a-overture",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The opening act for your A2A agents — discover, test, and certify A2A protocol compliance",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,6 +23,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:action": "ncc build dist/action/index.js -o action/dist --minify",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "mock": "node dist/index.js mock",
@@ -30,6 +31,8 @@
     "registry": "node dist/index.js registry serve",
     "demo": "node dist/index.js mock & node dist/index.js web",
     "lint": "eslint src/**/*.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -44,18 +47,20 @@
   "author": "kapil8811",
   "license": "Apache-2.0",
   "dependencies": {
-    "chalk": "^5.3.0",
-    "commander": "^12.1.0",
     "ajv": "^8.17.1",
-    "ora": "^8.1.0",
+    "chalk": "^5.3.0",
     "cli-table3": "^0.6.5",
-    "eventsource": "^2.0.2"
+    "commander": "^12.1.0",
+    "eventsource": "^2.0.2",
+    "ora": "^8.1.0"
   },
   "devDependencies": {
+    "@types/eventsource": "^1.1.15",
     "@types/node": "^22.0.0",
-    "typescript": "^5.6.0",
+    "@vercel/ncc": "^0.38.1",
     "ts-node": "^10.9.2",
-    "@types/eventsource": "^1.1.15"
+    "typescript": "^5.6.0",
+    "vitest": "^1.6.0"
   },
   "engines": {
     "node": ">=18.0.0"

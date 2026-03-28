@@ -1,12 +1,15 @@
 import { A2AClient, ClientOptions } from '../client';
 import { ComplianceReport, ComplianceTestResult } from '../types';
 import { allComplianceTests, ComplianceTest } from './tests/a2a-v1';
+import { getExtensionTests, ExtensionComplianceTest } from './tests/extensions';
 
 export interface RunnerOptions {
   /** Only run tests matching these IDs */
   testIds?: string[];
   /** Skip tests matching these IDs */
   skipIds?: string[];
+  /** Extension IDs to test (e.g., ['timestamp', 'traceability']) */
+  extensions?: string[];
   /** Called after each test completes */
   onTestComplete?: (result: ComplianceTestResult, index: number, total: number) => void;
 }
@@ -56,7 +59,14 @@ export async function runComplianceSuite(
   }
 
   // Filter tests
-  let tests = allComplianceTests;
+  let tests: Array<ComplianceTest | ExtensionComplianceTest> = [...allComplianceTests];
+
+  // Add extension tests if requested
+  if (runnerOptions?.extensions && runnerOptions.extensions.length > 0) {
+    const extTests = getExtensionTests(runnerOptions.extensions);
+    tests = [...tests, ...extTests];
+  }
+
   if (runnerOptions?.testIds?.length) {
     tests = tests.filter(t => runnerOptions.testIds!.includes(t.id));
   }

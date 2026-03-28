@@ -31,3 +31,6 @@ generate_analysis_doc.py
 # Logs
 *.log
 npm-debug.log*
+
+# a2a samples
+../a2a-samples/

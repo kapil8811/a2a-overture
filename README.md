@@ -1,15 +1,20 @@
 # A2A Overture
 
+[![npm version](https://img.shields.io/npm/v/a2a-overture.svg)](https://www.npmjs.com/package/a2a-overture)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 **The opening act for your A2A agents.**
 
-Discover, test, and certify [A2A (Agent-to-Agent) protocol](https://a2a-protocol.org/) compliance — from the command line or browser.
+Discover, test, benchmark, and certify [A2A (Agent-to-Agent) protocol](https://a2a-protocol.org/) compliance — from the command line or browser.
 
 ```
   ╔══════════════════════════════════════╗
   ║      A 2 A   O V E R T U R E         ║
-  ║ The opening act for your A2Aagents   ║
+  ║ The opening act for your A2A agents  ║
   ╚══════════════════════════════════════╝
 ```
+
+---
 
 ## What is A2A?
 
@@ -19,17 +24,25 @@ A2A solves the interoperability problem: without a shared protocol, every agent-
 
 > For a deeper dive into the business rationale, see [businessneeds.md](businessneeds.md).
 
+---
+
 ## What is A2A Overture?
 
-A2A Overture is a **developer toolkit for A2A agents**. It lets you:
+A2A Overture is a **developer toolkit for A2A agents** — **11 commands**, everything from discovery to benchmarking:
 
-- **Discover** — Fetch and inspect Agent Cards from any A2A-compliant agent
-- **Validate** — Check Agent Cards against the A2A v1.0 specification
-- **Send** — Send messages to agents and see responses (sync + streaming)
-- **Manage** — Get, list, and cancel tasks
-- **Certify** — Run a 23-test compliance suite covering multi-turn, push notifications, subscribe, auth, and more
-- **Mock** — Spin up a local mock A2A agent for testing without a live service
-- **Web UI** — Browser-based interactive GUI with built-in compliance testing
+| Command | What it does |
+|---------|-------------|
+| `overture discover` | Fetch and inspect Agent Cards |
+| `overture validate` | Check Agent Cards against the A2A v1.0 spec |
+| `overture send` | Send messages (sync + streaming) |
+| `overture task` | Get, list, and cancel tasks |
+| `overture certify` | Run a **24-test** compliance suite with diff reports, badges, and HTML output |
+| `overture interop` | Test multi-agent interoperability between 2+ agents |
+| `overture bench` | Performance benchmark — latency percentiles, throughput, error rate |
+| `overture init` | Scaffold a new A2A-compliant agent project (Python / TypeScript / Go) |
+| `overture mock` | Spin up a local mock A2A agent for testing |
+| `overture web` | Browser-based interactive GUI with all features |
+| `overture registry` | Public compliance registry — publish, search, and badge agents |
 
 ### Why Use This?
 
@@ -37,7 +50,10 @@ A2A Overture is a **developer toolkit for A2A agents**. It lets you:
 |---|---|
 | Manual `curl` to check Agent Cards | `overture discover <url>` — instant card inspection |
 | Write client code to test message handling | `overture send <url> "Hello"` — one command |
-| No way to verify spec compliance | `overture certify <url>` — 23 automated tests |
+| No way to verify spec compliance | `overture certify <url>` — 24 automated tests |
+| No multi-agent testing | `overture interop <url1> <url2>` — cross-agent validation |
+| No performance data | `overture bench <url>` — latency p50/p95/p99 + throughput |
+| Boilerplate to start a new agent | `overture init --sdk python` — full project scaffold |
 | Need a live agent to develop against | `overture mock` — local mock server in seconds |
 | No visual testing environment | `overture web` — full GUI in the browser |
 
@@ -46,6 +62,7 @@ A2A Overture is a **developer toolkit for A2A agents**. It lets you:
 A2A Overture covers approximately **100% of the A2A v1.0 specification**, including all required and optional features:
 
 - ✅ Agent Card discovery and validation (well-known URL, required fields, skills, security schemes)
+- ✅ Agent Card **signature verification** (JWS, JKU public key resolution, P1363 + DER format support)
 - ✅ Both protocol bindings (HTTP+JSON and JSON-RPC 2.0)
 - ✅ Full task lifecycle (create, get, list, cancel — all 9 task states)
 - ✅ Multi-turn conversations (contextId continuation, taskId continuation, message history)
@@ -54,38 +71,70 @@ A2A Overture covers approximately **100% of the A2A v1.0 specification**, includ
 - ✅ Push notification capability declaration and rejection
 - ✅ Push notification config CRUD — set, get, delete
 - ✅ Authentication (Bearer tokens, security scheme validation)
+- ✅ **mTLS** (mutual TLS) — client certificate auth on discover, send, and certify
+- ✅ **Extensions** framework (timestamp, traceability, secure-passport)
 - ✅ A2A-Version header support
 - ✅ Standard error codes (`-32001` TaskNotFoundError, `-32003` PushNotificationNotSupportedError, etc.)
+
+---
+
+## What's New in v0.4.0
+
+| Feature | Description |
+|---------|-------------|
+| **`overture interop`** | Multi-agent interoperability testing — cross-discover, cross-message, protocol compatibility between 2+ agents |
+| **`overture bench`** | Performance benchmarking — latency percentiles (p50/p95/p99), throughput (req/s), error rate, concurrent workers |
+| **`overture init`** | Scaffold generator — creates a ready-to-run A2A agent project in Python, TypeScript, or Go |
+| **Signature verification** | New `card-signature-valid` compliance test — verifies JWS signatures on Agent Cards via JKU public key resolution |
+| **Diff reports** | `certify --compare previous.json` — detect regressions and improvements between runs |
+| **mTLS support** | `--mtls-cert`, `--mtls-key`, `--mtls-ca` flags on `discover`, `send`, and `certify` |
+| **Extensions framework** | `certify --extensions timestamp,traceability,secure-passport` — 8 extension-specific compliance tests |
+| **Web UI: Interop + Bench** | Run interop and benchmark tests directly from the browser |
+| **Web UI: Report persistence** | Save, load, and compare compliance reports in the browser (History tab) |
+| **24 compliance tests** | Up from 23 — added `card-signature-valid` |
+| **8 extension tests** | New extension compliance tests for timestamp, traceability, and secure-passport |
+
+---
 
 ## Quick Start
 
 ```bash
-# Install globally
+# Install globally from npm
 npm install -g a2a-overture
 
-# Or build locally (see Local Development below)
-git clone <repo-url> && cd a2a-overture
-npm install && npm run build
+# Or use npx (no install needed)
+npx a2a-overture --help
 
-# Start a mock agent for testing (no live agent needed!)
+# Or build from source
+git clone https://github.com/kapil8811/a2a-overture.git
+cd a2a-overture && npm install && npm run build
+
+# Start a mock agent for testing
 overture mock
 
-# In another terminal — discover the mock agent
+# Discover an agent
 overture discover http://localhost:3000
-
-# Validate a local Agent Card
-overture validate ./agent-card.json
 
 # Send a message
 overture send http://localhost:3000 "What can you do?"
 
-# Run compliance certification
+# Run compliance certification (24 tests)
 overture certify http://localhost:3000
+
+# Test interoperability between two agents
+overture interop http://localhost:3000 http://localhost:3001
+
+# Benchmark an agent
+overture bench http://localhost:3000 --concurrency 10 --duration 30
+
+# Scaffold a new agent project
+overture init --sdk python --name my-agent
 
 # Launch the Web UI
 overture web
-# Then open http://localhost:8080 in your browser
 ```
+
+---
 
 ## Commands
 
@@ -98,6 +147,7 @@ overture discover https://agent.example.com
 overture discover https://agent.example.com --validate
 overture discover https://agent.example.com --json
 overture discover https://agent.example.com --save agent-card.json
+overture discover https://agent.example.com --mtls-cert client.pem --mtls-key client-key.pem
 ```
 
 Options:
@@ -105,6 +155,9 @@ Options:
 - `--validate` — Also validate the card against the spec
 - `--json` — Output raw JSON
 - `--save <file>` — Save the Agent Card to a file
+- `--mtls-cert <file>` — Client certificate file for mTLS
+- `--mtls-key <file>` — Client private key file for mTLS
+- `--mtls-ca <file>` — CA certificate file for mTLS
 
 ### `overture validate <source>`
 
@@ -128,6 +181,7 @@ overture send https://agent.example.com "Hello, what can you do?"
 overture send https://agent.example.com "Write a report" --stream
 overture send https://agent.example.com "Continue" --task-id abc-123
 overture send https://agent.example.com "Hello" --binding JSONRPC
+overture send https://agent.example.com "Hello" --mtls-cert client.pem --mtls-key client-key.pem
 ```
 
 Options:
@@ -137,6 +191,9 @@ Options:
 - `--context-id <id>` — Use a specific context
 - `--stream` — Use streaming mode (SSE)
 - `--json` — Output raw JSON
+- `--mtls-cert <file>` — Client certificate file for mTLS
+- `--mtls-key <file>` — Client private key file for mTLS
+- `--mtls-ca <file>` — CA certificate file for mTLS
 
 ### `overture task get|list|cancel`
 
@@ -150,27 +207,36 @@ overture task cancel https://agent.example.com task-uuid-123
 
 ### `overture certify <url>`
 
-Run the full A2A v1.0 compliance test suite.
+Run the full A2A v1.0 compliance test suite (24 core tests + optional extension tests).
 
 ```bash
 overture certify https://agent.example.com
 overture certify https://agent.example.com --json --save report.json
 overture certify https://agent.example.com --only card-reachable,card-valid
 overture certify https://agent.example.com --skip streaming
+overture certify https://agent.example.com --badge a2a-badge.svg --html report.html
+overture certify https://agent.example.com --compare previous-report.json
+overture certify https://agent.example.com --extensions timestamp,traceability
+overture certify https://agent.example.com --mtls-cert client.pem --mtls-key client-key.pem
 ```
 
 Options:
 - `--binding <type>` — Protocol binding to test
 - `--auth <token>` — Authorization header
-- `--only <tests>` — Only run specific test IDs
-- `--skip <tests>` — Skip specific test IDs
+- `--only <tests>` — Only run specific test IDs (comma-separated)
+- `--skip <tests>` — Skip specific test IDs (comma-separated)
+- `--extensions <exts>` — Extension IDs to test (e.g., `timestamp,traceability,secure-passport`)
 - `--json` — Output as JSON report
 - `--save <file>` — Save report to file
 - `--badge <file>` — Generate an SVG compliance badge
 - `--html <file>` — Generate a shareable HTML compliance report
-- `--timeout <ms>` — Request timeout
+- `--compare <file>` — Compare results with a previous JSON report (diff mode)
+- `--mtls-cert <file>` — Client certificate file for mTLS
+- `--mtls-key <file>` — Client private key file for mTLS
+- `--mtls-ca <file>` — CA certificate file for mTLS
+- `--timeout <ms>` — Request timeout (default: 30000)
 
-#### Compliance Tests
+#### Compliance Tests (24)
 
 | Test ID | What it checks |
 |---|---|
@@ -179,6 +245,7 @@ Options:
 | `card-required-fields` | All required fields are present |
 | `card-has-skills` | At least one skill is declared |
 | `card-https` | Interface URLs use HTTPS |
+| `card-signature-valid` | Agent Card JWS signatures are valid (JKU public key resolution) |
 | `send-message` | SendMessage accepts a basic text message |
 | `get-task` | GetTask returns a valid task after creation |
 | `invalid-task-error` | Invalid task ID returns TaskNotFoundError |
@@ -198,78 +265,104 @@ Options:
 | `auth-unauthorized` | Unauthenticated requests rejected when auth required |
 | `auth-security-schemes` | Declared security schemes have valid structure |
 
-## CI/CD Integration
+#### Extension Tests (8)
 
-### GitHub Action
+Enable with `--extensions`:
 
-A2A Overture includes a ready-to-use GitHub Action for automated compliance testing in pull requests:
+| Test ID | Extension | What it checks |
+|---|---|---|
+| `ext-card-extensions-valid` | Generic | Extension declarations are well-formed |
+| `ext-unsupported-rejected` | Generic | Unsupported extension is handled gracefully |
+| `ext-timestamp-declared` | `timestamp` | Timestamp extension declared in Agent Card |
+| `ext-timestamp-present` | `timestamp` | Timestamp metadata in responses |
+| `ext-traceability-declared` | `traceability` | Traceability extension declared in Agent Card |
+| `ext-traceability-response` | `traceability` | Traceability data in responses |
+| `ext-secure-passport-declared` | `secure-passport` | Secure Passport extension declared in Agent Card |
+| `ext-secure-passport-accepted` | `secure-passport` | Secure Passport CallerContext accepted |
 
-```yaml
-# .github/workflows/a2a-compliance.yml
-name: A2A Compliance Check
-on: [pull_request]
+#### Diff Reports
 
-jobs:
-  compliance:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Start agent
-        run: npm start &
-
-      - name: A2A Compliance Check
-        uses: a2a-overture/a2a-overture@v1
-        with:
-          agent-url: http://localhost:3000
-          badge-output: a2a-badge.svg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-The action posts a detailed compliance report as a PR comment, generates step summaries, and outputs machine-readable results. See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for full documentation.
-
-### CLI in Pipelines
+Compare two certification runs to detect regressions and improvements:
 
 ```bash
-# Fail the pipeline if the agent isn't compliant
-overture certify https://my-agent.example.com --json --save report.json
-# Exit code: 0 = all pass, 1 = failures found
+# Save a baseline
+overture certify https://agent.example.com --json --save baseline.json
 
-# Generate a compliance badge
-overture certify https://my-agent.example.com --badge a2a-badge.svg
-
-# Generate a shareable HTML report
-overture certify https://my-agent.example.com --html report.html
+# After changes, compare
+overture certify https://agent.example.com --compare baseline.json
 ```
 
-Example output against the mock server:
-```
-  ✔ Agent Card is reachable (5ms)
-  ✔ Agent Card schema is valid (3ms)
-  ✔ Required fields are present (2ms)
-  ✔ Agent declares at least one skill (5ms)
-  ✔ Interface URLs use HTTPS (3ms)
-  ✔ SendMessage accepts a basic text message (4ms)
-  ✔ GetTask returns a valid task (3ms)
-  ✔ Invalid task ID returns TaskNotFoundError
-  ✔ CancelTask cancels a running task (2ms)
-  ✔ ListTasks returns task list (2ms)
-  ✔ Streaming works (if supported) (619ms)
-  ✔ A2A-Version header is accepted (6ms)
-  ✔ Multi-turn conversation via contextId (3ms)
-  ✔ Multi-turn via taskId continuation (3ms)
-  ✔ Task history includes previous messages (4ms)
-  ✔ Push notification capability is declared
-  ○ Push config rejected when unsupported
-  ✔ SubscribeToTask streams task updates (2ms)
-  ✔ SetPushNotificationConfig stores config (3ms)
-  ✔ GetPushNotificationConfig retrieves config (2ms)
-  ✔ DeletePushNotificationConfig removes config (1ms)
-  ✔ Agent rejects unauthenticated requests when auth required
-  ✔ Security schemes are well-formed
+Output highlights regressions (pass → fail), improvements (fail → pass), new tests, and removed tests.
 
-  PASS  22 passed  0 failed  1 skipped
+### `overture interop <url1> <url2> [urls...]`
+
+Test multi-agent interoperability between two or more A2A agents.
+
+```bash
+overture interop http://localhost:3000 http://localhost:3001
+overture interop http://agent1.com http://agent2.com http://agent3.com --json
 ```
+
+Tests include:
+- **Cross-discovery** — each agent can discover the other's Agent Card
+- **Cross-messaging** — each agent can send messages to the others
+- **Protocol compatibility** — binding, version, and capability alignment
+
+Options:
+- `--binding <type>` — Protocol binding (`HTTP+JSON` or `JSONRPC`)
+- `--auth <token>` — Authorization header
+- `--timeout <ms>` — Request timeout (default: 30000)
+- `--json` — Output as JSON report
+
+### `overture bench <url>`
+
+Performance benchmark an A2A agent — measure latency, throughput, and error rate.
+
+```bash
+overture bench http://localhost:3000
+overture bench http://localhost:3000 --concurrency 20 --duration 60
+overture bench http://localhost:3000 --message "Process this" --json
+overture bench http://localhost:3000 --mtls-cert client.pem --mtls-key client-key.pem
+```
+
+Output includes:
+- Total requests, successes, failures, error rate
+- Throughput (requests/second)
+- Latency percentiles: min, mean, p50, p95, p99, max
+- Error breakdown by type (if any failures)
+
+Options:
+- `--concurrency <n>` — Number of concurrent workers (default: 10)
+- `--duration <seconds>` — Test duration in seconds (default: 30)
+- `--message <text>` — Message to send in each request (default: `"Hello"`)
+- `--binding <type>` — Protocol binding (`HTTP+JSON` or `JSONRPC`)
+- `--auth <token>` — Authorization header
+- `--mtls-cert <file>` — Client certificate file for mTLS
+- `--mtls-key <file>` — Client private key file for mTLS
+- `--mtls-ca <file>` — CA certificate file for mTLS
+- `--json` — Output as JSON
+
+### `overture init [directory]`
+
+Scaffold a new A2A-compliant agent project.
+
+```bash
+overture init --sdk python --name my-agent
+overture init --sdk typescript --name my-agent --port 4000
+overture init ./my-agent --sdk go
+```
+
+Generates a complete project with:
+- Agent Card configuration
+- HTTP server with A2A endpoint handlers
+- Package/module configuration
+- Next-steps instructions
+
+Options:
+- `--sdk <language>` — SDK language: `python`, `typescript`, or `go` (default: `python`)
+- `--name <name>` — Agent name (default: `my-a2a-agent`)
+- `--description <desc>` — Agent description (default: `An A2A-compliant agent`)
+- `--port <port>` — Server port (default: 3000)
 
 ### `overture mock`
 
@@ -290,9 +383,9 @@ The mock agent supports:
 - **Multi-turn** — maintains context and history across conversation turns
 - **Task lifecycle** — create, get, list, cancel tasks
 - **SubscribeToTask** — SSE-based task update subscription
-- **Push notification config CRUD** — set, get, and delete push notification configs per task
-- **SSE streaming** — word-by-word streaming responses with status updates
-- **Bearer token auth** — optional `--auth-token` flag adds security schemes to the Agent Card and enforces 401 on unauthenticated requests
+- **Push notification config CRUD** — set, get, and delete push configs per task
+- **SSE streaming** — word-by-word streaming responses
+- **Bearer token auth** — optional `--auth-token` flag adds security schemes and enforces 401
 
 Options:
 - `-p, --port <port>` — Port to listen on (default: `3000`)
@@ -300,10 +393,11 @@ Options:
 - `--name <name>` — Agent name
 - `--description <desc>` — Agent description
 - `--no-streaming` — Disable streaming support
-- `--latency <ms>` — Simulated response latency in milliseconds
-- `--auth-token <token>` — Require Bearer token auth (agent card will declare `securitySchemes`)
+- `--latency <ms>` — Simulated response latency
+- `--auth-token <token>` — Require Bearer token auth
 
 Endpoints served:
+
 | Endpoint | Method | Description |
 |---|---|---|
 | `/.well-known/agent-card.json` | GET | Agent Card discovery |
@@ -328,12 +422,16 @@ overture web --port 9090
 ```
 
 Then open `http://localhost:8080` in your browser. Features:
-- **Discover / Validate / Send / Certify** — all actions in the browser
+- **Discover / Validate / Send / Certify** — all core actions in the browser
+- **Interop** — multi-agent interoperability testing (enter additional agent URLs)
+- **Bench** — performance benchmarking with configurable concurrency and duration
+- **Report History** — save, load, and compare compliance reports over time
+- **Quick-action buttons** — one-click Discover, Certify, Interop, and Bench
 - **Pretty response rendering** — Agent Cards, tasks, compliance reports
 - **Binding selector** — HTTP+JSON or JSON-RPC
 - **Custom headers** — add auth tokens and extra headers
 - **Streaming toggle** — test SSE streaming mode
-- **23-test compliance suite** — full A2A v1.0 coverage: agent card validation, task lifecycle, streaming, subscribe, multi-turn, push notifications, push config CRUD, auth, version header
+- **24-test compliance suite** — full A2A v1.0 coverage in the browser
 
 Options:
 - `-p, --port <port>` — Port to listen on (default: `8080`)
@@ -379,6 +477,87 @@ Add to your README:
 ![A2A Certified](a2a-badge.svg)
 ```
 
+---
+
+## CI/CD Integration
+
+### GitHub Action
+
+A2A Overture includes a ready-to-use GitHub Action for automated compliance testing in pull requests:
+
+```yaml
+# .github/workflows/a2a-compliance.yml
+name: A2A Compliance Check
+on: [pull_request]
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start agent
+        run: npm start &
+
+      - name: A2A Compliance Check
+        uses: a2a-overture/a2a-overture@v1
+        with:
+          agent-url: http://localhost:3000
+          badge-output: a2a-badge.svg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The action posts a detailed compliance report as a PR comment, generates step summaries, and outputs machine-readable results. See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for full documentation.
+
+### CLI in Pipelines
+
+```bash
+# Fail the pipeline if the agent isn't compliant
+overture certify https://my-agent.example.com --json --save report.json
+# Exit code: 0 = all pass, 1 = failures found
+
+# Compare with baseline to detect regressions
+overture certify https://my-agent.example.com --compare baseline.json
+
+# Generate a compliance badge
+overture certify https://my-agent.example.com --badge a2a-badge.svg
+
+# Generate a shareable HTML report
+overture certify https://my-agent.example.com --html report.html
+```
+
+Example output against the mock server (with `--auth-token`):
+```
+  ✔ Agent Card is reachable (5ms)
+  ✔ Agent Card schema is valid (3ms)
+  ✔ Required fields are present (2ms)
+  ✔ Agent declares at least one skill (5ms)
+  ✔ Interface URLs use HTTPS (3ms)
+  ○ Agent Card signatures are valid
+  ✔ SendMessage accepts a basic text message (4ms)
+  ✔ GetTask returns a valid task (3ms)
+  ✔ Invalid task ID returns TaskNotFoundError
+  ✔ CancelTask cancels a running task (2ms)
+  ✔ ListTasks returns task list (2ms)
+  ✔ Streaming works (if supported) (619ms)
+  ✔ A2A-Version header is accepted (6ms)
+  ✔ Multi-turn conversation via contextId (3ms)
+  ✔ Multi-turn via taskId continuation (3ms)
+  ✔ Task history includes previous messages (4ms)
+  ✔ Push notification capability is declared
+  ○ Push config rejected when unsupported
+  ✔ SubscribeToTask streams task updates (2ms)
+  ✔ SetPushNotificationConfig stores config (3ms)
+  ✔ GetPushNotificationConfig retrieves config (2ms)
+  ✔ DeletePushNotificationConfig removes config (1ms)
+  ✔ Agent rejects unauthenticated requests when auth required
+  ✔ Security schemes are well-formed
+
+  PASS  22 passed  0 failed  2 skipped
+```
+
+---
+
 ## Programmatic Usage
 
 ```typescript
@@ -412,6 +591,8 @@ const report = await runComplianceSuite({
 console.log(`${report.summary.passed}/${report.summary.total} tests passed`);
 ```
 
+---
+
 ## Project Structure
 
 ```
@@ -419,46 +600,49 @@ a2a-overture/
 ├── src/
 │   ├── index.ts                    # CLI entry point
 │   ├── cli/
-│   │   ├── index.ts                # CLI setup (8 commands)
+│   │   ├── index.ts                # CLI setup (11 commands)
 │   │   └── commands/
-│   │       ├── discover.ts         # overture discover
+│   │       ├── discover.ts         # overture discover (+ mTLS)
 │   │       ├── validate.ts         # overture validate
-│   │       ├── send.ts             # overture send
+│   │       ├── send.ts             # overture send (+ mTLS)
 │   │       ├── task.ts             # overture task get|list|cancel
-│   │       ├── certify.ts          # overture certify (+ --badge, --html)
+│   │       ├── certify.ts          # overture certify (+ --compare, --extensions, mTLS)
+│   │       ├── interop.ts          # overture interop (multi-agent testing)
+│   │       ├── bench.ts            # overture bench (performance benchmarking)
+│   │       ├── init.ts             # overture init (project scaffold)
 │   │       ├── mock.ts             # overture mock
 │   │       ├── web.ts              # overture web
 │   │       └── registry.ts         # overture registry serve|publish|list
 │   ├── core/
 │   │   ├── types.ts                # A2A v1.0 protocol types
-│   │   ├── client.ts               # A2A HTTP+JSON & JSON-RPC client
+│   │   ├── client.ts               # A2A HTTP+JSON & JSON-RPC client (+ mTLS)
 │   │   ├── validator.ts            # Agent Card validator
 │   │   ├── spec-versions.ts        # Spec version tracking & coverage map
 │   │   └── compliance/
 │   │       ├── runner.ts           # Compliance test runner
 │   │       └── tests/
-│   │           └── a2a-v1.ts       # A2A v1.0 compliance tests (23)
+│   │           ├── a2a-v1.ts       # 24 core compliance tests
+│   │           └── extensions.ts   # 8 extension compliance tests
 │   ├── mock/
 │   │   └── server.ts              # Mock A2A agent server
 │   ├── registry/
 │   │   └── server.ts              # Public compliance registry
 │   ├── web/
-│   │   └── server.ts              # Web UI server
+│   │   └── server.ts              # Web UI server (interop, bench, history)
 │   ├── action/
 │   │   └── index.ts               # GitHub Action entrypoint
 │   └── reporters/
 │       ├── console.ts              # Pretty terminal output
 │       ├── json.ts                 # JSON report output
 │       ├── badge.ts                # SVG badge generator
-│       └── html.ts                 # Shareable HTML report
+│       ├── html.ts                 # Shareable HTML report
+│       └── diff.ts                 # Diff/regression reporter
 ├── action/
 │   └── action.yml                  # GitHub Action definition
-├── .github/
-│   └── workflows/
-│       └── a2a-compliance.yml      # CI self-test workflow
 ├── docs/
+│   ├── DESIGN.md                   # Architecture & design document
 │   ├── GITHUB_ACTION.md            # GitHub Action documentation
-│   └── WORKING_GROUP_PROPOSAL.md   # A2A working group proposal
+│   └── proposal-conformance-suite.md
 ├── examples/
 │   ├── sample-agent-card.json
 │   └── invalid-agent-card.json
@@ -467,11 +651,13 @@ a2a-overture/
 └── README.md
 ```
 
+---
+
 ## Local Development
 
 ```bash
 # Clone the repo
-git clone <repo-url>
+git clone https://github.com/kapil8811/a2a-overture.git
 cd a2a-overture
 
 # Install dependencies
@@ -479,6 +665,9 @@ npm install
 
 # Build TypeScript
 npm run build
+
+# Run tests (48 tests)
+npm test
 
 # Run any command via node
 node dist/index.js --help
@@ -488,11 +677,9 @@ node dist/index.js web
 # Or use npm scripts
 npm run mock           # Start mock server on port 3000
 npm run web            # Start Web UI on port 8080
+npm run registry       # Start registry on port 3335
 
-# Validate an Agent Card
-node dist/index.js validate examples/sample-agent-card.json
-
-# Link globally for development (makes `overture` command available)
+# Link globally for development
 npm link
 overture --help
 ```
@@ -505,7 +692,11 @@ overture --help
 | `npm start` | `node dist/index.js` | Run the CLI |
 | `npm run mock` | `node dist/index.js mock` | Start mock A2A agent |
 | `npm run web` | `node dist/index.js web` | Start Web UI |
+| `npm run registry` | `node dist/index.js registry serve` | Start compliance registry |
+| `npm test` | `vitest run` | Run test suite (48 tests) |
 | `npm run dev` | `ts-node src/index.ts` | Run directly from TypeScript |
+
+---
 
 ## Tested Against Real A2A Agents
 
@@ -513,9 +704,9 @@ A2A Overture has been validated against **8 real A2A agents** spanning Python, .
 
 | Agent | SDK | Protocol | Passed | Failed | Warn | Skipped | Notes |
 |-------|-----|----------|--------|--------|------|---------|-------|
-| **Overture Mock** | Built-in | v1.0 | 20 | 0 | 0 | 3 | Full compliance baseline |
+| **Overture Mock** | Built-in | v1.0 | 22 | 0 | 0 | 2 | Full compliance baseline (with auth) |
 | **AgentCarol** | Python (a2a-sdk) | v0.3.0 | 11 | 2 | 2 | 8 | Best third-party score; full task lifecycle |
-| **AgentAlice** | Python (a2a-sdk) | v0.3.0 | 9 | 5 | 1 | 8 | Tasks complete instantly → cancel/continue fail |
+| **AgentAlice** | Python (a2a-sdk) | v0.3.0 | 9 | 5 | 1 | 8 | Tasks complete instantly |
 | **EchoServer** | .NET (A2A NuGet) | v0.2.6 | 7 | 3 | 1 | 12 | Message-only echo; streaming works |
 | **CalculatorServer** | .NET (A2A NuGet) | v0.2.6 | 7 | 3 | 1 | 12 | Evaluates math expressions |
 | **CLIServer** | .NET (A2A NuGet) | v0.2.6 | 7 | 3 | 1 | 12 | Executes CLI commands |
@@ -527,9 +718,9 @@ A2A Overture has been validated against **8 real A2A agents** spanning Python, .
 ### Key Findings
 
 - **All pre-v1.0 agents** are missing `supportedInterfaces` (required in v1.0) — flagged correctly as compliance gaps
-- **.NET v0.2.6 agents** require the `kind` type discriminator as the **first JSON property** in Part objects (System.Text.Json polymorphic deserialization requirement) — Overture handles this automatically
+- **.NET v0.2.6 agents** require the `kind` type discriminator as the **first JSON property** in Part objects — Overture handles this automatically
 - **.NET agents** serve their agent card at `.well-known/agent.json` (not `agent-card.json`) — Overture falls back automatically
-- **AgentCarol** achieves the highest third-party score (11/23) with full task lifecycle support including multi-turn, history, and streaming
+- **AgentCarol** achieves the highest third-party score (11/24) with full task lifecycle support including multi-turn, history, and streaming
 - **Streaming** works across Python v0.3.0 and .NET v0.2.6 agents
 - **Auto-detection** of protocol version, binding, RPC endpoint URL, and agent card path ensures broad compatibility with zero configuration
 
@@ -545,21 +736,32 @@ Overture supports A2A protocol versions v1.0, v0.3.x, and v0.2.x:
 | Agent card URL | `.well-known/agent-card.json` | `.well-known/agent.json` (fallback) |
 | Binding | HTTP+JSON or JSONRPC | Auto-switches to JSONRPC |
 
+---
+
 ## Roadmap
 
-- [x] Full A2A v1.0 compliance test suite (23 tests, 100% coverage)
+- [x] Full A2A v1.0 compliance test suite (24 tests, 100% coverage)
+- [x] Agent Card signature verification (JWS, JKU, P1363/DER)
+- [x] Multi-agent interoperability testing (`overture interop`)
+- [x] Performance benchmarking (`overture bench`)
+- [x] Agent project scaffolding (`overture init` — Python, TypeScript, Go)
+- [x] Diff reports with regression detection (`certify --compare`)
+- [x] mTLS support across discover, send, and certify
+- [x] Extensions framework with 8 tests (timestamp, traceability, secure-passport)
 - [x] GitHub Action for CI/CD integration
 - [x] "A2A Certified" badge program with SVG generation
 - [x] Shareable HTML compliance reports
 - [x] Public compliance registry with web UI
-- [x] Spec version tracking infrastructure
+- [x] Web UI with interop, bench, and report history
 - [x] npm published as [`a2a-overture`](https://www.npmjs.com/package/a2a-overture)
-- [x] Tested against real A2A agents (official a2a-samples)
-- [x] Protocol v0.3.x backward compatibility (auto-detection)
-- [x] .NET v0.2.6 compatibility (part discriminators, agent card fallback)
-- [x] Cross-platform validation (Python + .NET + built-in, 8 agents total)
+- [x] Tested against real A2A agents (official a2a-samples, 8 agents)
+- [x] Protocol v0.3.x and v0.2.x backward compatibility (auto-detection)
+- [x] Cross-platform validation (Python + .NET + built-in)
 - [ ] Hosted public registry instance
 - [ ] A2A v1.1+ test coverage (as spec evolves)
+- [ ] Agent-to-agent delegation test scenarios
+
+---
 
 ## License
 

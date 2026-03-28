@@ -64,6 +64,15 @@ export const A2A_V1_FEATURES: SpecFeature[] = [
   // Security
   { id: 'auth-unauthorized', name: 'Authentication Enforcement', section: '7.1', addedIn: '1.0', testIds: ['auth-unauthorized'], status: 'covered' },
   { id: 'auth-schemes', name: 'Security Scheme Validation', section: '7.2', addedIn: '1.0', testIds: ['auth-security-schemes'], status: 'covered' },
+
+  // Agent Card Signature
+  { id: 'agent-card-signature', name: 'Agent Card Signature Verification', section: '3.1.5', addedIn: '1.0', testIds: ['card-signature-valid'], status: 'covered' },
+
+  // Extensions (tested when --extensions flag is used)
+  { id: 'ext-declaration', name: 'Extension Declaration Validation', section: '8.1', addedIn: '1.0', testIds: ['ext-card-extensions-valid', 'ext-unsupported-rejected'], status: 'covered' },
+  { id: 'ext-timestamp', name: 'Timestamp Extension', section: '8.2', addedIn: '1.0', testIds: ['ext-timestamp-declared', 'ext-timestamp-present'], status: 'covered' },
+  { id: 'ext-traceability', name: 'Traceability Extension', section: '8.3', addedIn: '1.0', testIds: ['ext-traceability-declared', 'ext-traceability-response'], status: 'covered' },
+  { id: 'ext-secure-passport', name: 'Secure Passport Extension', section: '8.4', addedIn: '1.0', testIds: ['ext-secure-passport-declared', 'ext-secure-passport-accepted'], status: 'covered' },
 ];
 
 /**
