@@ -19,7 +19,7 @@ import * as http from 'http';
 // ─── Minimal GitHub Actions helpers (no @actions/* dependency) ─
 
 function getInput(name: string, required = false): string {
-  const val = process.env[`INPUT_${name.replace(/-/g, '_').toUpperCase()}`] || '';
+  const val = process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`] || '';
   if (required && !val) {
     throw new Error(`Input required and not supplied: ${name}`);
   }
