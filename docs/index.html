@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A2A Overture — The Opening Act for Your A2A Agents</title>
+  <meta name="description" content="Discover, test, benchmark, and certify A2A protocol compliance — from the command line or browser.">
+  <meta property="og:title" content="A2A Overture">
+  <meta property="og:description" content="Developer toolkit for A2A agents — 11 commands, 24 compliance tests, multi-agent interop, benchmarking, and more.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-hover: #79c0ff;
+      --green: #3fb950;
+      --orange: #d29922;
+      --purple: #bc8cff;
+      --pink: #f778ba;
+      --red: #f85149;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+    code {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.9em;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 20px 60px;
+      background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-banner {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 24px;
+      display: inline-block;
+      margin-bottom: 32px;
+      white-space: pre;
+      line-height: 1.4;
+    }
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .tagline {
+      font-size: 1.3rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .hero-badges {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .badge .dot.green { background: var(--green); }
+    .badge .dot.blue { background: var(--accent); }
+    .badge .dot.purple { background: var(--purple); }
+    .badge .dot.orange { background: var(--orange); }
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); text-decoration: none; color: #fff; }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); text-decoration: none; }
+
+    /* Install bar */
+    .install-bar {
+      text-align: center;
+      padding: 32px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .install-cmd {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 20px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 1rem;
+      color: var(--green);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .install-cmd:hover { border-color: var(--accent); }
+    .install-cmd .prompt { color: var(--text-muted); }
+    .install-cmd .copy-icon { color: var(--text-muted); font-size: 0.9rem; }
+
+    /* Container */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Sections */
+    section { padding: 80px 20px; }
+    section:nth-child(even) { background: var(--surface); }
+    section h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    section .section-sub {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+      font-size: 1.1rem;
+    }
+
+    /* Commands grid */
+    .commands-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .cmd-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .cmd-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .cmd-card .cmd-icon {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+    .cmd-card h3 {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .cmd-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .cmd-card .cmd-tag {
+      display: inline-block;
+      margin-top: 12px;
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .tag-core { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .tag-new { background: rgba(63,185,80,0.15); color: var(--green); }
+    .tag-infra { background: rgba(188,140,255,0.15); color: var(--purple); }
+
+    /* Compliance tests */
+    .tests-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .test-group {
+      margin-bottom: 24px;
+    }
+    .test-group h3 {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .test-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 8px;
+    }
+    .test-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg);
+      border-radius: 6px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.82rem;
+    }
+    .test-item .check { color: var(--green); }
+
+    /* Terminal demo */
+    .terminal {
+      max-width: 750px;
+      margin: 0 auto;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+    .terminal-dot.red { background: #f85149; }
+    .terminal-dot.yellow { background: #d29922; }
+    .terminal-dot.green { background: #3fb950; }
+    .terminal-body {
+      padding: 20px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .terminal-body .line-prompt { color: var(--green); }
+    .terminal-body .line-cmd { color: var(--text); }
+    .terminal-body .line-pass { color: var(--green); }
+    .terminal-body .line-skip { color: var(--text-muted); }
+    .terminal-body .line-summary { color: var(--accent); font-weight: 700; }
+    .terminal-body .line-muted { color: var(--text-muted); }
+
+    /* Features grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .feature-card {
+      padding: 28px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .feature-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Agent table */
+    .agent-table-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    tr:hover td { background: rgba(88,166,255,0.04); }
+    .td-pass { color: var(--green); font-weight: 600; }
+    .td-fail { color: var(--red); font-weight: 600; }
+    .td-skip { color: var(--text-muted); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    footer a { color: var(--accent); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 2rem; }
+      .hero .tagline { font-size: 1.1rem; }
+      .hero-banner { font-size: 0.7rem; padding: 12px 16px; }
+      section { padding: 48px 16px; }
+      .commands-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-banner">╔══════════════════════════════════════╗
+║      A 2 A   O V E R T U R E        ║
+║ The opening act for your A2A agents  ║
+╚══════════════════════════════════════╝</div>
+    <h1>A2A Overture</h1>
+    <p class="tagline">Discover, test, benchmark, and certify A2A protocol compliance — from the command line or browser.</p>
+    <div class="hero-badges">
+      <span class="badge"><span class="dot green"></span> 24 Compliance Tests</span>
+      <span class="badge"><span class="dot blue"></span> 11 CLI Commands</span>
+      <span class="badge"><span class="dot purple"></span> 8 Extension Tests</span>
+      <span class="badge"><span class="dot orange"></span> A2A v1.0 + v0.3.x + v0.2.x</span>
+    </div>
+    <div class="hero-actions">
+      <a href="https://github.com/kapil8811/a2a-overture" class="btn btn-primary">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View on GitHub
+      </a>
+      <a href="https://www.npmjs.com/package/a2a-overture" class="btn btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 18 7" fill="currentColor"><path d="M0 0h18v6H9v1H5V6H0V0zm1 5h2V2h1v3h1V1H1v4zm5-4v5h2V5h2V1H6zm3 3H8V2h1v2zm3-3v4h2V2h1v3h1V2h1v3h1V1h-6z"/></svg>
+        npm install
+      </a>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <div class="install-bar">
+    <div class="install-cmd" onclick="navigator.clipboard.writeText('npm install -g a2a-overture'); this.querySelector('.copy-icon').textContent='Copied!'">
+      <span class="prompt">$</span>
+      <span>npm install -g a2a-overture</span>
+      <span class="copy-icon">📋</span>
+    </div>
+  </div>
+
+  <!-- Commands -->
+  <section>
+    <div class="container">
+      <h2>11 Commands, One Toolkit</h2>
+      <p class="section-sub">Everything you need to build, test, and certify A2A agents.</p>
+      <div class="commands-grid">
+        <div class="cmd-card">
+          <div class="cmd-icon">🔍</div>
+          <h3>overture discover &lt;url&gt;</h3>
+          <p>Fetch and inspect Agent Cards from any A2A-compliant agent. Supports mTLS.</p>
+          <span class="cmd-tag tag-core">Core</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">✅</div>
+          <h3>overture validate &lt;source&gt;</h3>
+          <p>Validate Agent Cards against the A2A v1.0 specification from URL or local file.</p>
+          <span class="cmd-tag tag-core">Core</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">💬</div>
+          <h3>overture send &lt;url&gt; &lt;msg&gt;</h3>
+          <p>Send text messages to agents with sync, streaming (SSE), mTLS, and multi-turn support.</p>
+          <span class="cmd-tag tag-core">Core</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">📋</div>
+          <h3>overture task get|list|cancel</h3>
+          <p>Manage A2A task lifecycle — get, list, and cancel tasks by ID.</p>
+          <span class="cmd-tag tag-core">Core</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">🏆</div>
+          <h3>overture certify &lt;url&gt;</h3>
+          <p>Run the full 24-test compliance suite with badges, HTML reports, diff reports, and extension tests.</p>
+          <span class="cmd-tag tag-core">Core</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">🔗</div>
+          <h3>overture interop &lt;urls...&gt;</h3>
+          <p>Test multi-agent interoperability — cross-discovery, cross-messaging, protocol compatibility.</p>
+          <span class="cmd-tag tag-new">New in v0.4.0</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">⚡</div>
+          <h3>overture bench &lt;url&gt;</h3>
+          <p>Performance benchmark — latency percentiles (p50/p95/p99), throughput, error rate.</p>
+          <span class="cmd-tag tag-new">New in v0.4.0</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">🏗️</div>
+          <h3>overture init --sdk python</h3>
+          <p>Scaffold a new A2A agent project in Python, TypeScript, or Go — ready to run.</p>
+          <span class="cmd-tag tag-new">New in v0.4.0</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">🤖</div>
+          <h3>overture mock</h3>
+          <p>Local mock A2A agent — echo, streaming, multi-turn, push notifications, auth.</p>
+          <span class="cmd-tag tag-infra">Infrastructure</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">🌐</div>
+          <h3>overture web</h3>
+          <p>Browser-based GUI with discover, certify, interop, bench, and report history.</p>
+          <span class="cmd-tag tag-infra">Infrastructure</span>
+        </div>
+        <div class="cmd-card">
+          <div class="cmd-icon">📦</div>
+          <h3>overture registry</h3>
+          <p>Public compliance registry — publish results, search agents, dynamic badges.</p>
+          <span class="cmd-tag tag-infra">Infrastructure</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Terminal Demo -->
+  <section>
+    <div class="container">
+      <h2>See It in Action</h2>
+      <p class="section-sub">Run a full certification in seconds.</p>
+      <div class="terminal">
+        <div class="terminal-header">
+          <span class="terminal-dot red"></span>
+          <span class="terminal-dot yellow"></span>
+          <span class="terminal-dot green"></span>
+          <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">Terminal</span>
+        </div>
+        <div class="terminal-body">
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture certify http://localhost:3000 --auth "Bearer token"</span></div>
+          <br>
+          <div class="line-pass">  ✔ Agent Card is reachable (5ms)</div>
+          <div class="line-pass">  ✔ Agent Card schema is valid (3ms)</div>
+          <div class="line-pass">  ✔ Required fields are present (2ms)</div>
+          <div class="line-pass">  ✔ Agent declares at least one skill (5ms)</div>
+          <div class="line-pass">  ✔ Interface URLs use HTTPS (3ms)</div>
+          <div class="line-skip">  ○ Agent Card signatures are valid</div>
+          <div class="line-pass">  ✔ SendMessage accepts a basic text message (4ms)</div>
+          <div class="line-pass">  ✔ GetTask returns a valid task (3ms)</div>
+          <div class="line-pass">  ✔ Invalid task ID returns TaskNotFoundError</div>
+          <div class="line-pass">  ✔ CancelTask cancels a running task (2ms)</div>
+          <div class="line-pass">  ✔ ListTasks returns task list (2ms)</div>
+          <div class="line-pass">  ✔ Streaming works (if supported) (619ms)</div>
+          <div class="line-pass">  ✔ A2A-Version header is accepted (6ms)</div>
+          <div class="line-pass">  ✔ Multi-turn conversation via contextId (3ms)</div>
+          <div class="line-pass">  ✔ Multi-turn via taskId continuation (3ms)</div>
+          <div class="line-pass">  ✔ Task history includes previous messages (4ms)</div>
+          <div class="line-pass">  ✔ Push notification capability is declared</div>
+          <div class="line-skip">  ○ Push config rejected when unsupported</div>
+          <div class="line-pass">  ✔ SubscribeToTask streams task updates (2ms)</div>
+          <div class="line-pass">  ✔ SetPushNotificationConfig stores config (3ms)</div>
+          <div class="line-pass">  ✔ GetPushNotificationConfig retrieves config (2ms)</div>
+          <div class="line-pass">  ✔ DeletePushNotificationConfig removes config (1ms)</div>
+          <div class="line-pass">  ✔ Agent rejects unauthenticated requests</div>
+          <div class="line-pass">  ✔ Security schemes are well-formed</div>
+          <br>
+          <div class="line-summary">  PASS  22 passed  0 failed  2 skipped</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Compliance Tests -->
+  <section>
+    <div class="container">
+      <h2>24 Core + 8 Extension Tests</h2>
+      <p class="section-sub">100% coverage of the A2A v1.0 specification.</p>
+      <div class="tests-container">
+        <div class="test-group">
+          <h3>Agent Card (6)</h3>
+          <div class="test-list">
+            <div class="test-item"><span class="check">✔</span> card-reachable</div>
+            <div class="test-item"><span class="check">✔</span> card-valid</div>
+            <div class="test-item"><span class="check">✔</span> card-required-fields</div>
+            <div class="test-item"><span class="check">✔</span> card-has-skills</div>
+            <div class="test-item"><span class="check">✔</span> card-https</div>
+            <div class="test-item"><span class="check">✔</span> card-signature-valid</div>
+          </div>
+        </div>
+        <div class="test-group">
+          <h3>Messaging &amp; Tasks (5)</h3>
+          <div class="test-list">
+            <div class="test-item"><span class="check">✔</span> send-message</div>
+            <div class="test-item"><span class="check">✔</span> get-task</div>
+            <div class="test-item"><span class="check">✔</span> invalid-task-error</div>
+            <div class="test-item"><span class="check">✔</span> cancel-task</div>
+            <div class="test-item"><span class="check">✔</span> list-tasks</div>
+          </div>
+        </div>
+        <div class="test-group">
+          <h3>Streaming &amp; Multi-turn (4)</h3>
+          <div class="test-list">
+            <div class="test-item"><span class="check">✔</span> streaming</div>
+            <div class="test-item"><span class="check">✔</span> multi-turn-context</div>
+            <div class="test-item"><span class="check">✔</span> multi-turn-task</div>
+            <div class="test-item"><span class="check">✔</span> multi-turn-history</div>
+          </div>
+        </div>
+        <div class="test-group">
+          <h3>Push Notifications (5)</h3>
+          <div class="test-list">
+            <div class="test-item"><span class="check">✔</span> push-notification-capability</div>
+            <div class="test-item"><span class="check">✔</span> push-notification-reject</div>
+            <div class="test-item"><span class="check">✔</span> subscribe-task</div>
+            <div class="test-item"><span class="check">✔</span> push-set-config</div>
+            <div class="test-item"><span class="check">✔</span> push-get-config</div>
+            <div class="test-item"><span class="check">✔</span> push-delete-config</div>
+          </div>
+        </div>
+        <div class="test-group">
+          <h3>Auth &amp; Protocol (3)</h3>
+          <div class="test-list">
+            <div class="test-item"><span class="check">✔</span> version-header</div>
+            <div class="test-item"><span class="check">✔</span> auth-unauthorized</div>
+            <div class="test-item"><span class="check">✔</span> auth-security-schemes</div>
+          </div>
+        </div>
+        <div class="test-group">
+          <h3>Extensions (8) — opt-in via <code>--extensions</code></h3>
+          <div class="test-list">
+            <div class="test-item"><span class="check">✔</span> ext-card-extensions-valid</div>
+            <div class="test-item"><span class="check">✔</span> ext-unsupported-rejected</div>
+            <div class="test-item"><span class="check">✔</span> ext-timestamp-declared</div>
+            <div class="test-item"><span class="check">✔</span> ext-timestamp-present</div>
+            <div class="test-item"><span class="check">✔</span> ext-traceability-declared</div>
+            <div class="test-item"><span class="check">✔</span> ext-traceability-response</div>
+            <div class="test-item"><span class="check">✔</span> ext-secure-passport-declared</div>
+            <div class="test-item"><span class="check">✔</span> ext-secure-passport-accepted</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Features -->
+  <section>
+    <div class="container">
+      <h2>Key Features</h2>
+      <p class="section-sub">Built for agent developers who need confidence in their A2A implementation.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>🔐 Signature Verification</h3>
+          <p>Verify JWS signatures on Agent Cards via JKU public key resolution. Supports P1363 and DER formats.</p>
+        </div>
+        <div class="feature-card">
+          <h3>📊 Diff Reports</h3>
+          <p><code>certify --compare baseline.json</code> — detect regressions and improvements between certification runs.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🔒 mTLS Support</h3>
+          <p>Client certificate authentication on discover, send, and certify with <code>--mtls-cert</code> and <code>--mtls-key</code>.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🧩 Extensions Framework</h3>
+          <p>Test timestamp, traceability, and secure-passport extensions with 8 dedicated compliance tests.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🌐 Web Dashboard</h3>
+          <p>Full browser GUI with interop testing, benchmarking, report history, and quick-action buttons.</p>
+        </div>
+        <div class="feature-card">
+          <h3>⚙️ CI/CD Ready</h3>
+          <p>GitHub Action included. Badge generation, HTML reports, and JSON output for pipeline integration.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tested Against -->
+  <section>
+    <div class="container">
+      <h2>Tested Against Real Agents</h2>
+      <p class="section-sub">Validated against 8 agents across Python, .NET, and built-in mock — three protocol versions.</p>
+      <div class="agent-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>SDK</th>
+              <th>Protocol</th>
+              <th>Passed</th>
+              <th>Failed</th>
+              <th>Skipped</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Overture Mock</strong></td>
+              <td>Built-in</td>
+              <td>v1.0</td>
+              <td class="td-pass">22</td>
+              <td class="td-pass">0</td>
+              <td class="td-skip">2</td>
+            </tr>
+            <tr>
+              <td><strong>AgentCarol</strong></td>
+              <td>Python (a2a-sdk)</td>
+              <td>v0.3.0</td>
+              <td class="td-pass">11</td>
+              <td class="td-fail">2</td>
+              <td class="td-skip">8</td>
+            </tr>
+            <tr>
+              <td><strong>AgentAlice</strong></td>
+              <td>Python (a2a-sdk)</td>
+              <td>v0.3.0</td>
+              <td class="td-pass">9</td>
+              <td class="td-fail">5</td>
+              <td class="td-skip">8</td>
+            </tr>
+            <tr>
+              <td><strong>EchoServer</strong></td>
+              <td>.NET (A2A NuGet)</td>
+              <td>v0.2.6</td>
+              <td class="td-pass">7</td>
+              <td class="td-fail">3</td>
+              <td class="td-skip">12</td>
+            </tr>
+            <tr>
+              <td><strong>CalculatorServer</strong></td>
+              <td>.NET (A2A NuGet)</td>
+              <td>v0.2.6</td>
+              <td class="td-pass">7</td>
+              <td class="td-fail">3</td>
+              <td class="td-skip">12</td>
+            </tr>
+            <tr>
+              <td><strong>CLIServer</strong></td>
+              <td>.NET (A2A NuGet)</td>
+              <td>v0.2.6</td>
+              <td class="td-pass">7</td>
+              <td class="td-fail">3</td>
+              <td class="td-skip">12</td>
+            </tr>
+            <tr>
+              <td><strong>Signed Agent</strong></td>
+              <td>Python (a2a-sdk)</td>
+              <td>v0.3.0</td>
+              <td class="td-pass">6</td>
+              <td class="td-fail">2</td>
+              <td class="td-skip">13</td>
+            </tr>
+            <tr>
+              <td><strong>Hello World</strong></td>
+              <td>Python (a2a-sdk)</td>
+              <td>v0.3.0</td>
+              <td class="td-pass">6</td>
+              <td class="td-fail">2</td>
+              <td class="td-skip">13</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section>
+    <div class="container">
+      <h2>Quick Start</h2>
+      <p class="section-sub">From zero to certified in under a minute.</p>
+      <div class="terminal">
+        <div class="terminal-header">
+          <span class="terminal-dot red"></span>
+          <span class="terminal-dot yellow"></span>
+          <span class="terminal-dot green"></span>
+          <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">Terminal</span>
+        </div>
+        <div class="terminal-body">
+          <div class="line-muted"># Install</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">npm install -g a2a-overture</span></div>
+          <br>
+          <div class="line-muted"># Start a mock agent</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture mock</span></div>
+          <br>
+          <div class="line-muted"># Discover the agent</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture discover http://localhost:3000</span></div>
+          <br>
+          <div class="line-muted"># Send a message</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture send http://localhost:3000 "Hello!"</span></div>
+          <br>
+          <div class="line-muted"># Run compliance certification</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture certify http://localhost:3000</span></div>
+          <br>
+          <div class="line-muted"># Test multi-agent interop</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture interop http://localhost:3000 http://localhost:3001</span></div>
+          <br>
+          <div class="line-muted"># Benchmark performance</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture bench http://localhost:3000 --concurrency 10</span></div>
+          <br>
+          <div class="line-muted"># Scaffold a new agent</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture init --sdk python --name my-agent</span></div>
+          <br>
+          <div class="line-muted"># Launch the Web UI</div>
+          <div><span class="line-prompt">$</span> <span class="line-cmd">overture web</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>
+      <strong>A2A Overture</strong> &mdash; Apache 2.0 License &mdash;
+      <a href="https://github.com/kapil8811/a2a-overture">GitHub</a> &middot;
+      <a href="https://www.npmjs.com/package/a2a-overture">npm</a> &middot;
+      <a href="https://a2a-protocol.org/">A2A Protocol</a>
+    </p>
+    <p style="margin-top: 8px; font-size: 0.8rem;">Built for the A2A community</p>
+  </footer>
+
+</body>
+</html>
