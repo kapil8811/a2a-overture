@@ -78,7 +78,7 @@ A2A Overture covers approximately **100% of the A2A v1.0 specification**, includ
 
 ---
 
-## What's New in v0.3.0
+## What's New in v0.4.0
 
 | Feature | Description |
 |---------|-------------|

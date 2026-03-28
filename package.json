@@ -1,6 +1,6 @@
 {
   "name": "a2a-overture",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The opening act for your A2A agents — discover, test, and certify A2A protocol compliance",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
